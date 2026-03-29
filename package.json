@@ -1,0 +1,14 @@
+{
+  "name": "sustainable-electric-micro-mobility-platform",
+  "private": true,
+  "description": "Expo app is in electric-micro-mobility/. Use npm start from here, or cd electric-micro-mobility before npx expo.",
+  "scripts": {
+    "start": "npm run start --prefix electric-micro-mobility",
+    "android": "npm run android --prefix electric-micro-mobility",
+    "ios": "npm run ios --prefix electric-micro-mobility",
+    "web": "npm run web --prefix electric-micro-mobility",
+    "lint": "npm run lint --prefix electric-micro-mobility",
+    "expo": "npm exec --prefix electric-micro-mobility -- expo",
+    "backend": "cd backend && python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000"
+  }
+}
