@@ -57,12 +57,12 @@ export function useMapScreen() {
           nextRegion = DEFAULT_MAP_REGION;
         }
       }
-      const [rideRes, mapRes] = await Promise.all([
+      const [rideRes, mapRes] = await Promise.allSettled([
         getActiveRideForUser(user.id),
         fetchVehiclesForMap(),
       ]);
-      const list = mapRes.data ?? [];
-      setActiveRide(rideRes.data ?? null);
+      const list = mapRes.status === 'fulfilled' ? (mapRes.value.data ?? []) : [];
+      setActiveRide(rideRes.status === 'fulfilled' ? (rideRes.value.data ?? null) : null);
       setVehicles(list);
       return { region: nextRegion, vehicles: list };
     } finally {

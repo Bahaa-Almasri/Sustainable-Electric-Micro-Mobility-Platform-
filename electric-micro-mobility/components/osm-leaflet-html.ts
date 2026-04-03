@@ -1,7 +1,7 @@
 import type { MapCameraRegion } from './osm-map-types';
 import type { VehicleWithState } from '@/types/entities';
 
-/** OSM-derived raster tiles (CARTO) — no Google / Apple map SDK. */
+/** OSM-derived raster tiles (Leaflet) — no Google / Apple map SDK. */
 export const OSM_LEAFLET_HTML = `<!DOCTYPE html>
 <html>
 <head>
@@ -19,10 +19,11 @@ export const OSM_LEAFLET_HTML = `<!DOCTYPE html>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script>
     (function () {
-      var map = L.map('map', { zoomControl: true });
-      L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png', {
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; CARTO',
-        subdomains: 'abcd',
+      var DEFAULT_CENTER = [40.7128, -74.006];
+      var DEFAULT_ZOOM = 13;
+      var map = L.map('map', { zoomControl: true }).setView(DEFAULT_CENTER, DEFAULT_ZOOM);
+      L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
         maxZoom: 19
       }).addTo(map);
       var markersLayer = L.layerGroup().addTo(map);
@@ -39,13 +40,22 @@ export const OSM_LEAFLET_HTML = `<!DOCTYPE html>
           }
         } catch (e) {}
       }
+      function finiteNumber(value) {
+        return typeof value === 'number' && isFinite(value);
+      }
       function fitRegion(region) {
-        if (!region || region.latitude == null) return;
+        if (!region) return;
+        if (!finiteNumber(region.latitude) || !finiteNumber(region.longitude)) return;
         var lat = region.latitude, lng = region.longitude;
-        var latd = region.latitudeDelta || 0.06, lngd = region.longitudeDelta || 0.06;
+        var latd = finiteNumber(region.latitudeDelta) && region.latitudeDelta > 0 ? region.latitudeDelta : 0.06;
+        var lngd = finiteNumber(region.longitudeDelta) && region.longitudeDelta > 0 ? region.longitudeDelta : 0.06;
         var south = lat - latd / 2, north = lat + latd / 2;
         var west = lng - lngd / 2, east = lng + lngd / 2;
-        map.fitBounds([[south, west], [north, east]], { animate: true, padding: [16, 16], maxZoom: 17 });
+        try {
+          map.fitBounds([[south, west], [north, east]], { animate: true, padding: [16, 16], maxZoom: 17 });
+        } catch (e) {
+          map.setView(DEFAULT_CENTER, DEFAULT_ZOOM);
+        }
       }
       function setMarkers(vehicles) {
         markersLayer.clearLayers();
@@ -91,10 +101,14 @@ export const OSM_LEAFLET_HTML = `<!DOCTYPE html>
       });
       map.whenReady(function () {
         window.__mapReady = true;
+        map.invalidateSize();
         if (window.__osmPending) {
           window.__osmReceive(window.__osmPending);
           window.__osmPending = null;
         }
+      });
+      window.addEventListener('resize', function () {
+        map.invalidateSize();
       });
     })();
   </script>
