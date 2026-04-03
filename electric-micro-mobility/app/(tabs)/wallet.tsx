@@ -26,6 +26,7 @@ type MethodRow = PaymentMethodRow;
 
 const GRADIENT_GREEN = '#1B4332';
 const GRADIENT_RED = '#D90429';
+const RED_ACCENT = '#FF4B41';
 const DEFAULT_BADGE_BG = '#B85C38';
 /** Light page background — matches reference off-white */
 const PAGE_BG_LIGHT = '#F2F2F4';
@@ -115,9 +116,8 @@ export default function WalletScreen() {
 
   if (loading && !refreshing) {
     return (
-      <ThemedView style={styles.centered}>
-        <ActivityIndicator size="large" color={colors.tint} />
-        <ThemedText style={styles.muted}>Loading wallet…</ThemedText>
+      <ThemedView style={[styles.centered, { backgroundColor: pageBg }]}>
+        <ActivityIndicator size="large" color={RED_ACCENT} />
       </ThemedView>
     );
   }

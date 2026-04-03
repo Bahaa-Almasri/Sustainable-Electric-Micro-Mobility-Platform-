@@ -16,21 +16,21 @@ async def list_available(_user_id: UUID = Depends(get_current_user_id)):
         rows = await conn.fetch(
             """
             SELECT
-              s.state_id,
+              s.vehicle_id AS state_id,
               s.vehicle_id,
               s.battery_level,
               s.lat::float8 AS lat,
               s.lng::float8 AS lng,
               s.status AS state_status,
               s.last_updated,
-              v.model,
-              v.type,
-              v.qr_code,
-              v.status AS vehicle_status,
-              v.last_gps_at
+              NULL::text AS model,
+              v.type::text AS type,
+              NULL::text AS qr_code,
+              v.availability_status::text AS vehicle_status,
+              s.last_updated AS last_gps_at
             FROM vehicles v
             INNER JOIN vehicle_current_state s ON s.vehicle_id = v.vehicle_id
-            WHERE v.status = 'available'
+            WHERE v.availability_status = 'available'
               AND s.lat IS NOT NULL
               AND s.lng IS NOT NULL
             """
@@ -67,18 +67,18 @@ async def get_vehicle(vehicle_id: UUID, _user_id: UUID = Depends(get_current_use
         row = await conn.fetchrow(
             """
             SELECT
-              s.state_id,
+              s.vehicle_id AS state_id,
               s.vehicle_id,
               s.battery_level,
               s.lat::float8 AS lat,
               s.lng::float8 AS lng,
               s.status AS state_status,
               s.last_updated,
-              v.model,
-              v.type,
-              v.qr_code,
-              v.status AS vehicle_status,
-              v.last_gps_at
+              NULL::text AS model,
+              v.type::text AS type,
+              NULL::text AS qr_code,
+              v.availability_status::text AS vehicle_status,
+              s.last_updated AS last_gps_at
             FROM vehicles v
             LEFT JOIN vehicle_current_state s ON s.vehicle_id = v.vehicle_id
             WHERE v.vehicle_id = $1

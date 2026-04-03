@@ -1,12 +1,12 @@
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
-import * as Haptics from 'expo-haptics';
+import React, { memo } from 'react';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 
 const ACTIVE_PILL = '#FF4B41';
 const INACTIVE = '#9E9E9E';
 const BAR_BG = '#FFFFFF';
 
-export function PillTabBar({ state, descriptors, navigation, insets }: BottomTabBarProps) {
+function PillTabBarInner({ state, descriptors, navigation, insets }: BottomTabBarProps) {
   return (
     <View style={[styles.bar, { paddingBottom: Math.max(insets.bottom, 10), paddingTop: 8 }]}>
       {state.routes.map((route, index) => {
@@ -51,9 +51,10 @@ export function PillTabBar({ state, descriptors, navigation, insets }: BottomTab
             onPress={onPress}
             onLongPress={onLongPress}
             onPressIn={() => {
-              if (process.env.EXPO_OS === 'ios') {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              }
+              if (Platform.OS !== 'ios') return;
+              void import('expo-haptics').then((Haptics) =>
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+              );
             }}
             style={styles.tabPressable}>
             {isFocused ? (
@@ -77,6 +78,9 @@ export function PillTabBar({ state, descriptors, navigation, insets }: BottomTab
     </View>
   );
 }
+
+/** Stable reference for `<Tabs tabBar={PillTabBar} />` — avoids new render prop each layout pass. */
+export const PillTabBar = memo(PillTabBarInner);
 
 const styles = StyleSheet.create({
   bar: {

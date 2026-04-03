@@ -16,7 +16,13 @@ async def my_reservations(user_id: UUID = Depends(get_current_user_id)):
     async with pool.acquire() as conn:
         rows = await conn.fetch(
             """
-            SELECT r.*, v.vehicle_id AS v_id, v.model, v.type, v.qr_code, v.status AS vehicle_status
+            SELECT
+              r.*,
+              v.vehicle_id AS v_id,
+              NULL::text AS model,
+              v.type::text AS type,
+              NULL::text AS qr_code,
+              v.availability_status::text AS vehicle_status
             FROM reservations r
             LEFT JOIN vehicles v ON v.vehicle_id = r.vehicle_id
             WHERE r.user_id = $1
