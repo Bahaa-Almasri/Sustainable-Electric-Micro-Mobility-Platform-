@@ -10,6 +10,22 @@ import { Colors } from '@/constants/theme';
 import { useAuth } from '@/contexts/auth-context';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
+function WalletTabIcon({ color, size }: { color: string; size: number }) {
+  return <MaterialIcons name="account-balance-wallet" size={size} color={color} />;
+}
+function ReservationsTabIcon({ color, size }: { color: string; size: number }) {
+  return <MaterialIcons name="event-note" size={size} color={color} />;
+}
+function MapTabIcon({ color, size }: { color: string; size: number }) {
+  return <MaterialIcons name="map" size={size + 4} color={color} />;
+}
+function SupportTabIcon({ color, size }: { color: string; size: number }) {
+  return <MaterialIcons name="support-agent" size={size} color={color} />;
+}
+function AccountTabIcon({ color, size }: { color: string; size: number }) {
+  return <MaterialIcons name="person" size={size} color={color} />;
+}
+
 export default function TabLayout() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
@@ -62,39 +78,35 @@ export default function TabLayout() {
         name="wallet"
         options={{
           title: 'Wallet',
-          tabBarIcon: ({ color, size }) => (
-            <MaterialIcons name="account-balance-wallet" size={size} color={color} />
-          ),
+          tabBarIcon: WalletTabIcon,
         }}
       />
       <Tabs.Screen
         name="reservations"
         options={{
           title: 'Reservations',
-          tabBarIcon: ({ color, size }) => <MaterialIcons name="event-note" size={size} color={color} />,
+          tabBarIcon: ReservationsTabIcon,
         }}
       />
       <Tabs.Screen
         name="map"
         options={{
           title: 'Map',
-          tabBarIcon: ({ color, size }) => (
-            <MaterialIcons name="map" size={size + 4} color={color} />
-          ),
+          tabBarIcon: MapTabIcon,
         }}
       />
       <Tabs.Screen
         name="support"
         options={{
           title: 'Support',
-          tabBarIcon: ({ color, size }) => <MaterialIcons name="support-agent" size={size} color={color} />,
+          tabBarIcon: SupportTabIcon,
         }}
       />
       <Tabs.Screen
         name="account"
         options={{
           title: 'Account',
-          tabBarIcon: ({ color, size }) => <MaterialIcons name="person" size={size} color={color} />,
+          tabBarIcon: AccountTabIcon,
         }}
       />
     </Tabs>

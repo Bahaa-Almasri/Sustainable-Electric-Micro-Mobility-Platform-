@@ -19,6 +19,7 @@ export default function MapScreen() {
   const colors = Colors[colorScheme ?? 'light'];
   const { region, vehicles, loading, activeRide, ending, refresh, onEndRide } = useMapScreen();
   const mapRef = useRef<OsmMapViewRef>(null);
+  const mapHasBeenFocusedRef = useRef(false);
 
   const refreshAndAnimate = useCallback(async () => {
     const { region: next, vehicles: nextVehicles } = await refresh();
@@ -27,8 +28,13 @@ export default function MapScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      refreshAndAnimate();
-    }, [refreshAndAnimate])
+      if (!mapHasBeenFocusedRef.current) {
+        mapHasBeenFocusedRef.current = true;
+        void refreshAndAnimate();
+        return;
+      }
+      void refresh({ silent: true });
+    }, [refresh, refreshAndAnimate])
   );
 
   const onVehiclePress = useCallback((vehicleId: string) => {

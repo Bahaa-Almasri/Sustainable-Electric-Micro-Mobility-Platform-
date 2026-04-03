@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -66,26 +66,36 @@ export default function SupportScreen() {
   const [subject, setSubject] = useState('');
   const [description, setDescription] = useState('');
   const [sending, setSending] = useState(false);
+  const screenFocusRef = useRef(false);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (opts?: { silent?: boolean }) => {
+    const silent = opts?.silent ?? false;
     if (!user) return;
-    setLoading(true);
-    const { data, error } = await fetchSupportTickets(user.id);
-    if (!error && data) setTickets(data);
-    else setTickets([]);
-    setLoading(false);
+    if (!silent) setLoading(true);
+    try {
+      const { data, error } = await fetchSupportTickets(user.id);
+      if (!error && data) setTickets(data);
+      else setTickets([]);
+    } finally {
+      setLoading(false);
+    }
   }, [user]);
 
   useFocusEffect(
     useCallback(() => {
-      load();
+      const silent = screenFocusRef.current;
+      screenFocusRef.current = true;
+      void load({ silent });
     }, [load])
   );
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await load();
-    setRefreshing(false);
+    try {
+      await load({ silent: true });
+    } finally {
+      setRefreshing(false);
+    }
   }, [load]);
 
   async function submitTicket() {
@@ -104,7 +114,7 @@ export default function SupportScreen() {
     setOpen(false);
     setSubject('');
     setDescription('');
-    load();
+    void load({ silent: true });
   }
 
   if (loading && !refreshing) {

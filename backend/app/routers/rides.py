@@ -1,3 +1,4 @@
+import logging
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -6,6 +7,8 @@ from app.deps import get_current_user_id
 from app.db import get_pool
 from app.schemas import EndRideRequest, StartRideRequest
 from app.util_json import record_to_dict
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/rides", tags=["rides"])
 
@@ -26,22 +29,29 @@ def _ride_row_dict(record) -> dict:
 async def active_ride(user_id: UUID = Depends(get_current_user_id)):
     pool = get_pool()
     async with pool.acquire() as conn:
-        row = await conn.fetchrow(
-            """
-            SELECT
-              r.*,
-              NULL::text AS model,
-              v.type::text AS type,
-              NULL::text AS qr_code
-            FROM rides r
-            LEFT JOIN vehicles v ON v.vehicle_id = r.vehicle_id
-            WHERE r.user_id = $1
-              AND r.status = 'in_progress'
-            ORDER BY r.started_at DESC NULLS LAST
-            LIMIT 1
-            """,
-            user_id,
-        )
+        try:
+            row = await conn.fetchrow(
+                """
+                SELECT
+                  r.*,
+                  NULL::text AS model,
+                  v.type::text AS type,
+                  NULL::text AS qr_code
+                FROM rides r
+                LEFT JOIN vehicles v ON v.vehicle_id = r.vehicle_id
+                WHERE r.user_id = $1
+                  AND r.status = 'started'
+                ORDER BY r.started_at DESC NULLS LAST
+                LIMIT 1
+                """,
+                user_id,
+            )
+        except Exception as exc:
+            logger.exception("Failed to query active ride for user %s", user_id)
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Database error checking active ride: {exc}",
+            ) from exc
     if not row:
         return None
     d = _ride_row_dict(row)
@@ -66,15 +76,22 @@ async def active_ride(user_id: UUID = Depends(get_current_user_id)):
 async def list_my_rides(user_id: UUID = Depends(get_current_user_id)):
     pool = get_pool()
     async with pool.acquire() as conn:
-        rows = await conn.fetch(
-            """
-            SELECT *
-            FROM rides
-            WHERE user_id = $1
-            ORDER BY started_at DESC NULLS LAST
-            """,
-            user_id,
-        )
+        try:
+            rows = await conn.fetch(
+                """
+                SELECT *
+                FROM rides
+                WHERE user_id = $1
+                ORDER BY started_at DESC NULLS LAST
+                """,
+                user_id,
+            )
+        except Exception as exc:
+            logger.exception("Failed to list rides for user %s", user_id)
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Database error listing rides: {exc}",
+            ) from exc
     return [_ride_row_dict(r) for r in rows]
 
 
@@ -86,7 +103,7 @@ async def start_ride(body: StartRideRequest, user_id: UUID = Depends(get_current
             active = await conn.fetchrow(
                 """
                 SELECT ride_id FROM rides
-                WHERE user_id = $1 AND status = 'in_progress'
+                WHERE user_id = $1 AND status = 'started'
                 LIMIT 1
                 """,
                 user_id,
@@ -108,7 +125,7 @@ async def start_ride(body: StartRideRequest, user_id: UUID = Depends(get_current
             await conn.execute(
                 """
                 INSERT INTO rides (ride_id, user_id, vehicle_id, started_at, status, start_lat, start_lng)
-                VALUES (gen_random_uuid(), $1, $2, now(), 'in_progress', $3, $4)
+                VALUES (gen_random_uuid(), $1, $2, now(), 'started', $3, $4)
                 """,
                 user_id,
                 body.vehicle_id,
@@ -122,7 +139,7 @@ async def start_ride(body: StartRideRequest, user_id: UUID = Depends(get_current
             await conn.execute(
                 """
                 UPDATE vehicle_current_state
-                SET status = 'in_use', last_updated = now()
+                SET updated_at = now()
                 WHERE vehicle_id = $1
                 """,
                 body.vehicle_id,
@@ -148,7 +165,7 @@ async def end_ride(body: EndRideRequest, user_id: UUID = Depends(get_current_use
                 raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ride not found")
             if row["user_id"] != user_id:
                 raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not your ride")
-            if str(row["status"] or "").lower() not in ("in_progress", "active"):
+            if str(row["status"] or "").lower() not in ("started", "paused"):
                 raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Ride is not active")
 
             vehicle_id = row["vehicle_id"]
@@ -169,7 +186,7 @@ async def end_ride(body: EndRideRequest, user_id: UUID = Depends(get_current_use
             await conn.execute(
                 """
                 UPDATE vehicle_current_state
-                SET status = 'available', last_updated = now()
+                SET updated_at = now()
                 WHERE vehicle_id = $1
                 """,
                 vehicle_id,

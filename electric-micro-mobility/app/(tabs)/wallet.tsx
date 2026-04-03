@@ -1,7 +1,7 @@
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { router, type Href } from 'expo-router';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { router, useFocusEffect, type Href } from 'expo-router';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -52,42 +52,53 @@ export default function WalletScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [buyingId, setBuyingId] = useState<string | null>(null);
+  const screenFocusRef = useRef(false);
 
   const totalRidesRemaining = useMemo(
     () => purchases.reduce((s, p) => s + (p.rides_remaining ?? 0), 0),
     [purchases]
   );
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (opts?: { silent?: boolean }) => {
+    const silent = opts?.silent ?? false;
     if (!user) return;
-    setLoading(true);
-    const [pkgRes, overview] = await Promise.all([fetchRidePackages(), fetchWalletOverview()]);
+    if (!silent) setLoading(true);
+    try {
+      const [pkgRes, overview] = await Promise.all([fetchRidePackages(), fetchWalletOverview()]);
 
-    if (!pkgRes.error && pkgRes.data) setPackages(pkgRes.data);
-    else setPackages([]);
+      if (!pkgRes.error && pkgRes.data) setPackages(pkgRes.data);
+      else setPackages([]);
 
-    if (!overview.error) {
-      setPurchases(overview.purchases as PurchaseRow[]);
-      setMethods(overview.payment_methods);
-      setPayments(overview.recent_payments);
-    } else {
-      setPurchases([]);
-      setMethods([]);
-      setPayments([]);
+      if (!overview.error) {
+        setPurchases(overview.purchases as PurchaseRow[]);
+        setMethods(overview.payment_methods);
+        setPayments(overview.recent_payments);
+      } else {
+        setPurchases([]);
+        setMethods([]);
+        setPayments([]);
+      }
+    } finally {
+      setLoading(false);
     }
-
-    setLoading(false);
   }, [user]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await load();
-    setRefreshing(false);
+    try {
+      await load({ silent: true });
+    } finally {
+      setRefreshing(false);
+    }
   }, [load]);
 
-  useEffect(() => {
-    load();
-  }, [load]);
+  useFocusEffect(
+    useCallback(() => {
+      const silent = screenFocusRef.current;
+      screenFocusRef.current = true;
+      void load({ silent });
+    }, [load])
+  );
 
   async function onBuy(pkg: PackageRow) {
     if (!user) return;
@@ -107,7 +118,7 @@ export default function WalletScreen() {
               return;
             }
             Alert.alert('Success', 'Package added to your account.');
-            load();
+            void load({ silent: true });
           },
         },
       ]

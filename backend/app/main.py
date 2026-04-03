@@ -1,11 +1,15 @@
+import logging
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 from app.config import settings
 from app.db import close_pool, get_pool, init_pool
 from app.routers import auth, reservations, rides, support, users, vehicles, wallet
+
+logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
@@ -25,6 +29,16 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.exception_handler(Exception)
+async def _unhandled_exception_handler(request: Request, exc: Exception):
+    """Return a proper JSON 500 so CORSMiddleware can attach its headers."""
+    logger.exception("Unhandled exception on %s %s", request.method, request.url.path)
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "Internal server error"},
+    )
 
 app.include_router(auth.router)
 app.include_router(users.router)

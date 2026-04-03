@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, useFocusEffect, type Href } from 'expo-router';
-import { useCallback, useMemo, useState } from 'react';
+import { memo, useCallback, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -87,39 +87,112 @@ function tripDurationSubLabel(mins: number | null): string {
   return `${mins} MINUTES`;
 }
 
+type RideHistoryCardProps = {
+  item: RideRow;
+};
+
+const RideHistoryCard = memo(function RideHistoryCard({ item }: RideHistoryCardProps) {
+  const mins = rideDurationMinutes(item);
+  const badgeText =
+    mins != null
+      ? `-${mins} MIN`
+      : item.cost != null
+        ? `${item.cost}`
+        : (item.status ?? '—').toUpperCase();
+  return (
+    <View style={styles.rideCard}>
+      <View style={styles.rideTopRow}>
+        <LinearGradient
+          colors={[AVATAR_GRADIENT_START, AVATAR_GRADIENT_END]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.rideIconCircle}>
+          <Ionicons name="flash" size={18} color="#FFFFFF" />
+        </LinearGradient>
+        <View style={styles.rideTitleBlock}>
+          <ThemedText
+            type="defaultSemiBold"
+            style={styles.rideVehicle}
+            lightColor={ON_SURFACE}
+            darkColor={ON_SURFACE}>
+            {vehicleLabel(item.vehicle_id)}
+          </ThemedText>
+          <ThemedText style={styles.rideWhen} lightColor={MUTED_TEXT} darkColor={MUTED_TEXT}>
+            {formatRideWhen(item.start_time)}
+          </ThemedText>
+        </View>
+        <View style={styles.rideBadge}>
+          <Text style={styles.rideBadgeText}>{badgeText}</Text>
+        </View>
+      </View>
+      <View style={styles.rideDivider} />
+      <View style={styles.rideBottomRow}>
+        <View style={styles.timerCircle}>
+          <Ionicons name="time-outline" size={16} color="#757575" />
+        </View>
+        <ThemedText
+          type="defaultSemiBold"
+          style={styles.tripMain}
+          lightColor={ON_SURFACE}
+          darkColor={ON_SURFACE}>
+          {tripDurationLabel(mins)}
+        </ThemedText>
+        <ThemedText style={styles.tripSub} lightColor={MUTED_TEXT} darkColor={MUTED_TEXT}>
+          {tripDurationSubLabel(mins)}
+        </ThemedText>
+      </View>
+      {item.cost != null && mins == null ? (
+        <ThemedText style={styles.costNote} lightColor={MUTED_TEXT} darkColor={MUTED_TEXT}>
+          Cost: {item.cost}
+        </ThemedText>
+      ) : null}
+    </View>
+  );
+});
+
 export default function AccountScreen() {
   const { user, signOut } = useAuth();
   const [profile, setProfile] = useState<UserRow | null>(null);
   const [rides, setRides] = useState<RideRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const screenFocusRef = useRef(false);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (opts?: { silent?: boolean }) => {
+    const silent = opts?.silent ?? false;
     if (!user) return;
-    setLoading(true);
-    const [profRes, ridesRes] = await Promise.all([fetchUserMe(), fetchRidesForUser(user.id)]);
-    setProfile(profRes.data ?? null);
-    if (!ridesRes.error && ridesRes.data) setRides(ridesRes.data);
-    else setRides([]);
-    setLoading(false);
+    if (!silent) setLoading(true);
+    try {
+      const [profRes, ridesRes] = await Promise.all([fetchUserMe(), fetchRidesForUser(user.id)]);
+      setProfile(profRes.data ?? null);
+      if (!ridesRes.error && ridesRes.data) setRides(ridesRes.data);
+      else setRides([]);
+    } finally {
+      setLoading(false);
+    }
   }, [user]);
 
   useFocusEffect(
     useCallback(() => {
-      load();
+      const silent = screenFocusRef.current;
+      screenFocusRef.current = true;
+      void load({ silent });
     }, [load])
   );
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await load();
-    setRefreshing(false);
+    try {
+      await load({ silent: true });
+    } finally {
+      setRefreshing(false);
+    }
   }, [load]);
 
-  async function onSignOut() {
+  const onSignOut = useCallback(async () => {
     await signOut();
     router.replace('/sign-in' as Href);
-  }
+  }, [signOut]);
 
   const displayName =
     profile?.name?.trim() || user?.email?.trim() || 'Rider';
@@ -136,6 +209,78 @@ export default function AccountScreen() {
 
   const emailDisplay = (profile?.email ?? user?.email ?? '').toUpperCase();
 
+  const listHeader = useMemo(
+    () => (
+      <View style={styles.header}>
+        <View style={styles.avatarWrap}>
+          <LinearGradient
+            colors={[AVATAR_GRADIENT_START, AVATAR_GRADIENT_END]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.avatar}>
+            <Text style={styles.avatarLetter}>{avatarLetter}</Text>
+          </LinearGradient>
+          <Pressable
+            style={styles.editFab}
+            onPress={() => Alert.alert('Edit profile', 'Profile editing is not available yet.')}
+            accessibilityRole="button"
+            accessibilityLabel="Edit profile photo">
+            <Ionicons name="pencil" size={14} color="#FFFFFF" />
+          </Pressable>
+        </View>
+
+        <ThemedText type="title" style={styles.nameCenter} lightColor={ON_SURFACE} darkColor={ON_SURFACE}>
+          {displayName.toUpperCase()}
+        </ThemedText>
+        <Text style={styles.emailCaps}>{emailDisplay}</Text>
+
+        {profile?.phone_number ? (
+          <ThemedText style={styles.phoneLine} lightColor={MUTED_TEXT} darkColor={MUTED_TEXT}>
+            {profile.phone_number}
+          </ThemedText>
+        ) : null}
+        {profile?.status ? (
+          <ThemedText style={styles.statusLine} lightColor={MUTED_TEXT} darkColor={MUTED_TEXT}>
+            Account status: {profile.status}
+          </ThemedText>
+        ) : null}
+
+        <View style={styles.statsRow}>
+          <View style={styles.statCard}>
+            <ThemedText type="title" style={styles.statValue} lightColor={ON_SURFACE} darkColor={ON_SURFACE}>
+              {rides.length}
+            </ThemedText>
+            <Text style={styles.statLabelMuted}>TOTAL RIDES</Text>
+          </View>
+          <View style={[styles.statCard, styles.statCardEmphasized]}>
+            <ThemedText type="title" style={styles.statValue} lightColor={ON_SURFACE} darkColor={ON_SURFACE}>
+              {totalMinutes}
+            </ThemedText>
+            <Text style={[styles.statLabelGreen, { color: STAT_LABEL_MINUTES }]}>TOTAL MINUTES</Text>
+          </View>
+        </View>
+
+        <ThemedText type="subtitle" style={styles.historyHeading} lightColor={ON_SURFACE} darkColor={ON_SURFACE}>
+          RIDE HISTORY
+        </ThemedText>
+      </View>
+    ),
+    [avatarLetter, displayName, emailDisplay, profile, rides.length, totalMinutes]
+  );
+
+  const renderRideItem = useCallback(({ item }: { item: RideRow }) => <RideHistoryCard item={item} />, []);
+
+  const listFooter = useMemo(
+    () => (
+      <Pressable
+        style={({ pressed }) => [styles.signOut, pressed && styles.signOutPressed]}
+        onPress={onSignOut}>
+        <Text style={styles.signOutText}>Sign Out</Text>
+      </Pressable>
+    ),
+    [onSignOut]
+  );
+
   if (loading && !refreshing) {
     return (
       <ThemedView style={[styles.centered, styles.loadingScreen]}>
@@ -150,61 +295,7 @@ export default function AccountScreen() {
       keyExtractor={(r) => r.ride_id}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       style={{ backgroundColor: PAGE_BG }}
-      ListHeaderComponent={
-        <View style={styles.header}>
-          <View style={styles.avatarWrap}>
-            <LinearGradient
-              colors={[AVATAR_GRADIENT_START, AVATAR_GRADIENT_END]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.avatar}>
-              <Text style={styles.avatarLetter}>{avatarLetter}</Text>
-            </LinearGradient>
-            <Pressable
-              style={styles.editFab}
-              onPress={() => Alert.alert('Edit profile', 'Profile editing is not available yet.')}
-              accessibilityRole="button"
-              accessibilityLabel="Edit profile photo">
-              <Ionicons name="pencil" size={14} color="#FFFFFF" />
-            </Pressable>
-          </View>
-
-          <ThemedText type="title" style={styles.nameCenter} lightColor={ON_SURFACE} darkColor={ON_SURFACE}>
-            {displayName.toUpperCase()}
-          </ThemedText>
-          <Text style={styles.emailCaps}>{emailDisplay}</Text>
-
-          {profile?.phone_number ? (
-            <ThemedText style={styles.phoneLine} lightColor={MUTED_TEXT} darkColor={MUTED_TEXT}>
-              {profile.phone_number}
-            </ThemedText>
-          ) : null}
-          {profile?.status ? (
-            <ThemedText style={styles.statusLine} lightColor={MUTED_TEXT} darkColor={MUTED_TEXT}>
-              Account status: {profile.status}
-            </ThemedText>
-          ) : null}
-
-          <View style={styles.statsRow}>
-            <View style={styles.statCard}>
-              <ThemedText type="title" style={styles.statValue} lightColor={ON_SURFACE} darkColor={ON_SURFACE}>
-                {rides.length}
-              </ThemedText>
-              <Text style={styles.statLabelMuted}>TOTAL RIDES</Text>
-            </View>
-            <View style={[styles.statCard, styles.statCardEmphasized]}>
-              <ThemedText type="title" style={styles.statValue} lightColor={ON_SURFACE} darkColor={ON_SURFACE}>
-                {totalMinutes}
-              </ThemedText>
-              <Text style={[styles.statLabelGreen, { color: STAT_LABEL_MINUTES }]}>TOTAL MINUTES</Text>
-            </View>
-          </View>
-
-          <ThemedText type="subtitle" style={styles.historyHeading} lightColor={ON_SURFACE} darkColor={ON_SURFACE}>
-            RIDE HISTORY
-          </ThemedText>
-        </View>
-      }
+      ListHeaderComponent={listHeader}
       ListEmptyComponent={
         <View style={styles.emptyWrap}>
           <ThemedText style={styles.empty} lightColor={MUTED_TEXT} darkColor={MUTED_TEXT}>
@@ -212,72 +303,13 @@ export default function AccountScreen() {
           </ThemedText>
         </View>
       }
-      renderItem={({ item }) => {
-        const mins = rideDurationMinutes(item);
-        const badgeText =
-          mins != null
-            ? `-${mins} MIN`
-            : item.cost != null
-              ? `${item.cost}`
-              : (item.status ?? '—').toUpperCase();
-        return (
-          <View style={styles.rideCard}>
-            <View style={styles.rideTopRow}>
-              <LinearGradient
-                colors={[AVATAR_GRADIENT_START, AVATAR_GRADIENT_END]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.rideIconCircle}>
-                <Ionicons name="flash" size={18} color="#FFFFFF" />
-              </LinearGradient>
-              <View style={styles.rideTitleBlock}>
-                <ThemedText
-                  type="defaultSemiBold"
-                  style={styles.rideVehicle}
-                  lightColor={ON_SURFACE}
-                  darkColor={ON_SURFACE}>
-                  {vehicleLabel(item.vehicle_id)}
-                </ThemedText>
-                <ThemedText style={styles.rideWhen} lightColor={MUTED_TEXT} darkColor={MUTED_TEXT}>
-                  {formatRideWhen(item.start_time)}
-                </ThemedText>
-              </View>
-              <View style={styles.rideBadge}>
-                <Text style={styles.rideBadgeText}>{badgeText}</Text>
-              </View>
-            </View>
-            <View style={styles.rideDivider} />
-            <View style={styles.rideBottomRow}>
-              <View style={styles.timerCircle}>
-                <Ionicons name="time-outline" size={16} color="#757575" />
-              </View>
-              <ThemedText
-                type="defaultSemiBold"
-                style={styles.tripMain}
-                lightColor={ON_SURFACE}
-                darkColor={ON_SURFACE}>
-                {tripDurationLabel(mins)}
-              </ThemedText>
-              <ThemedText style={styles.tripSub} lightColor={MUTED_TEXT} darkColor={MUTED_TEXT}>
-                {tripDurationSubLabel(mins)}
-              </ThemedText>
-            </View>
-            {item.cost != null && mins == null ? (
-              <ThemedText style={styles.costNote} lightColor={MUTED_TEXT} darkColor={MUTED_TEXT}>
-                Cost: {item.cost}
-              </ThemedText>
-            ) : null}
-          </View>
-        );
-      }}
+      renderItem={renderRideItem}
       contentContainerStyle={styles.list}
-      ListFooterComponent={
-        <Pressable
-          style={({ pressed }) => [styles.signOut, pressed && styles.signOutPressed]}
-          onPress={onSignOut}>
-          <Text style={styles.signOutText}>Sign Out</Text>
-        </Pressable>
-      }
+      ListFooterComponent={listFooter}
+      windowSize={7}
+      initialNumToRender={8}
+      maxToRenderPerBatch={8}
+      updateCellsBatchingPeriod={50}
     />
   );
 }

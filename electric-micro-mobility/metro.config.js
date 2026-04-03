@@ -16,7 +16,8 @@ config.transformer = {
       transform: {
         ...base.transform,
         experimentalImportSupport: false,
-        inlineRequires: true,
+        // Keep Expo/RN default for inlineRequires. Forcing true can reorder module init and
+        // break react-native-worklets / Reanimated (e.g. dev-time serialization in runOnUI).
       },
     };
   },

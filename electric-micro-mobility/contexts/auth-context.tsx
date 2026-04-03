@@ -45,28 +45,54 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    let mounted = true;
+    /** False once this effect instance is cleaned up (e.g. Strict Mode remount). */
+    let active = true;
+    const SESSION_CHECK_MS = 12_000;
 
     (async () => {
-      const token = await getStoredToken();
-      if (!token) {
-        if (mounted) setLoading(false);
-        return;
-      }
       try {
-        const me = await apiFetch<UserRow>('/users/me');
-        if (mounted) {
-          setUser({ id: me.user_id, email: me.email ?? null });
+        let token: string | null = null;
+        try {
+          token = await getStoredToken();
+        } catch {
+          await setStoredToken(null).catch(() => {});
+        }
+
+        if (!token) {
+          return;
+        }
+
+        try {
+          const me = await Promise.race([
+            apiFetch<UserRow>('/users/me'),
+            new Promise<never>((_, reject) => {
+              setTimeout(() => reject(new Error('Session check timed out')), SESSION_CHECK_MS);
+            }),
+          ]);
+          if (active && me && typeof me === 'object' && 'user_id' in me) {
+            const row = me as UserRow;
+            setUser({ id: row.user_id, email: row.email ?? null });
+          }
+        } catch {
+          await setStoredToken(null).catch(() => {});
+          if (active) {
+            setUser(null);
+          }
         }
       } catch {
-        await setStoredToken(null);
-        if (mounted) setUser(null);
+        await setStoredToken(null).catch(() => {});
+        if (active) {
+          setUser(null);
+        }
+      } finally {
+        if (active) {
+          setLoading(false);
+        }
       }
-      if (mounted) setLoading(false);
     })();
 
     return () => {
-      mounted = false;
+      active = false;
     };
   }, [configured]);
 

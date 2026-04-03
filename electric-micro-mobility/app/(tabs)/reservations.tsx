@@ -1,7 +1,7 @@
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, useFocusEffect, type Href } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { memo, useCallback, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -72,6 +72,96 @@ function formatReservationWhen(iso: string | null): string {
   return `${date} • ${time}`;
 }
 
+type ReservationRowCardProps = {
+  item: ReservationRow;
+  cardBg: string;
+  isDark: boolean;
+  colorsText: string;
+  onViewDetails: (item: ReservationRow) => void;
+  onCancelReservation: () => void;
+};
+
+const ReservationRowCard = memo(function ReservationRowCard({
+  item,
+  cardBg,
+  isDark,
+  colorsText,
+  onViewDetails,
+  onCancelReservation,
+}: ReservationRowCardProps) {
+  const model = item.vehicles?.model?.trim() || 'Scooter';
+  const type = item.vehicles?.type?.trim() || '—';
+  return (
+    <View style={[styles.card, { backgroundColor: cardBg }, !isDark && CARD_SHADOW]}>
+      <View style={styles.cardTopRow}>
+        <LinearGradient
+          colors={[AVATAR_GRADIENT_START, AVATAR_GRADIENT_END]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.cardIconCircle}>
+          <Ionicons name="flash" size={18} color="#FFFFFF" />
+        </LinearGradient>
+        <View style={styles.cardTitleBlock}>
+          <ThemedText
+            type="defaultSemiBold"
+            style={styles.cardTitle}
+            lightColor={ON_SURFACE}
+            darkColor={colorsText}>
+            {vehicleShortLabel(item.vehicle_id)}
+          </ThemedText>
+          <ThemedText style={styles.cardSubtitle} lightColor={MUTED_TEXT} darkColor={MUTED_TEXT}>
+            {model.toUpperCase()} · {type.toUpperCase()}
+          </ThemedText>
+          <ThemedText style={styles.cardMeta} lightColor={MUTED_TEXT} darkColor={MUTED_TEXT}>
+            Reserved {formatReservationWhen(item.created_at)}
+          </ThemedText>
+          <ThemedText style={styles.cardMeta} lightColor={MUTED_TEXT} darkColor={MUTED_TEXT}>
+            Expires {formatReservationWhen(item.expires_at)}
+          </ThemedText>
+        </View>
+        <View style={[styles.statusPill, isDark && styles.statusPillDark]}>
+          <Text style={[styles.statusText, isDark && styles.statusTextDark]}>
+            {(item.status ?? '—').toUpperCase()}
+          </Text>
+        </View>
+      </View>
+      <View
+        style={[
+          styles.cardDivider,
+          { backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' },
+        ]}
+      />
+      <View
+        style={[
+          styles.cardActions,
+          { backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : '#F0F0F0' },
+        ]}>
+        <Pressable
+          style={({ pressed }) => [styles.actionGhost, pressed && styles.actionPressed]}
+          onPress={onCancelReservation}
+          accessibilityRole="button"
+          accessibilityLabel="Cancel reservation">
+          <Text style={[styles.actionGhostText, isDark && styles.actionGhostTextDark]}>Cancel</Text>
+        </Pressable>
+        <Pressable
+          style={({ pressed }) => [styles.detailsBtnWrap, pressed && styles.detailsBtnWrapPressed]}
+          onPress={() => onViewDetails(item)}
+          accessibilityRole="button"
+          accessibilityLabel="View vehicle details">
+          <LinearGradient
+            colors={[GRADIENT_RED, GRADIENT_GREEN]}
+            start={{ x: 0, y: 0.5 }}
+            end={{ x: 1, y: 0.5 }}
+            style={styles.detailsGradient}>
+            <Text style={styles.detailsBtnText}>View details</Text>
+            <Ionicons name="chevron-forward" size={18} color="#FFFFFF" />
+          </LinearGradient>
+        </Pressable>
+      </View>
+    </View>
+  );
+});
+
 export default function ReservationsScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
@@ -88,27 +178,48 @@ export default function ReservationsScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [reserveOpen, setReserveOpen] = useState(false);
   const [vehicleIdInput, setVehicleIdInput] = useState('');
+  const screenFocusRef = useRef(false);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (opts?: { silent?: boolean }) => {
+    const silent = opts?.silent ?? false;
     if (!user) return;
-    setLoading(true);
-    const { data, error } = await fetchReservationsForUser(user.id);
-    if (!error && data) setItems(data as ReservationRow[]);
-    else setItems([]);
-    setLoading(false);
+    if (!silent) setLoading(true);
+    try {
+      const { data, error } = await fetchReservationsForUser(user.id);
+      if (!error && data) setItems(data as ReservationRow[]);
+      else setItems([]);
+    } finally {
+      setLoading(false);
+    }
   }, [user]);
 
   useFocusEffect(
     useCallback(() => {
-      load();
+      const silent = screenFocusRef.current;
+      screenFocusRef.current = true;
+      void load({ silent });
     }, [load])
   );
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await load();
-    setRefreshing(false);
+    try {
+      await load({ silent: true });
+    } finally {
+      setRefreshing(false);
+    }
   }, [load]);
+
+  const onViewDetails = useCallback((r: ReservationRow) => {
+    router.push(`/vehicle/${r.vehicle_id}` as Href);
+  }, []);
+
+  const onCancelReservation = useCallback(() => {
+    Alert.alert(
+      'Cancel reservation',
+      'Cancellation is not available in the app yet. Your hold will end automatically at the expiry time, or contact support for help.'
+    );
+  }, []);
 
   async function submitReservation() {
     const id = vehicleIdInput.trim();
@@ -124,19 +235,22 @@ export default function ReservationsScreen() {
     setReserveOpen(false);
     setVehicleIdInput('');
     Alert.alert('Reserved', 'Your hold is active until it expires.');
-    load();
+    void load({ silent: true });
   }
 
-  function onViewDetails(item: ReservationRow) {
-    router.push(`/vehicle/${item.vehicle_id}` as Href);
-  }
-
-  function onCancelReservation() {
-    Alert.alert(
-      'Cancel reservation',
-      'Cancellation is not available in the app yet. Your hold will end automatically at the expiry time, or contact support for help.'
-    );
-  }
+  const renderReservationItem = useCallback(
+    ({ item }: { item: ReservationRow }) => (
+      <ReservationRowCard
+        item={item}
+        cardBg={cardBg}
+        isDark={isDark}
+        colorsText={colors.text}
+        onViewDetails={onViewDetails}
+        onCancelReservation={onCancelReservation}
+      />
+    ),
+    [cardBg, isDark, colors.text, onCancelReservation, onViewDetails]
+  );
 
   if (loading && !refreshing) {
     return (
@@ -240,80 +354,13 @@ export default function ReservationsScreen() {
             </ThemedText>
           </View>
         }
-        renderItem={({ item }) => {
-          const model = item.vehicles?.model?.trim() || 'Scooter';
-          const type = item.vehicles?.type?.trim() || '—';
-          return (
-            <View style={[styles.card, { backgroundColor: cardBg }, !isDark && CARD_SHADOW]}>
-              <View style={styles.cardTopRow}>
-                <LinearGradient
-                  colors={[AVATAR_GRADIENT_START, AVATAR_GRADIENT_END]}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={styles.cardIconCircle}>
-                  <Ionicons name="flash" size={18} color="#FFFFFF" />
-                </LinearGradient>
-                <View style={styles.cardTitleBlock}>
-                  <ThemedText
-                    type="defaultSemiBold"
-                    style={styles.cardTitle}
-                    lightColor={ON_SURFACE}
-                    darkColor={colors.text}>
-                    {vehicleShortLabel(item.vehicle_id)}
-                  </ThemedText>
-                  <ThemedText style={styles.cardSubtitle} lightColor={MUTED_TEXT} darkColor={MUTED_TEXT}>
-                    {model.toUpperCase()} · {type.toUpperCase()}
-                  </ThemedText>
-                  <ThemedText style={styles.cardMeta} lightColor={MUTED_TEXT} darkColor={MUTED_TEXT}>
-                    Reserved {formatReservationWhen(item.created_at)}
-                  </ThemedText>
-                  <ThemedText style={styles.cardMeta} lightColor={MUTED_TEXT} darkColor={MUTED_TEXT}>
-                    Expires {formatReservationWhen(item.expires_at)}
-                  </ThemedText>
-                </View>
-                <View style={[styles.statusPill, isDark && styles.statusPillDark]}>
-                  <Text style={[styles.statusText, isDark && styles.statusTextDark]}>
-                    {(item.status ?? '—').toUpperCase()}
-                  </Text>
-                </View>
-              </View>
-              <View
-                style={[
-                  styles.cardDivider,
-                  { backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' },
-                ]}
-              />
-              <View
-                style={[
-                  styles.cardActions,
-                  { backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : '#F0F0F0' },
-                ]}>
-                <Pressable
-                  style={({ pressed }) => [styles.actionGhost, pressed && styles.actionPressed]}
-                  onPress={onCancelReservation}
-                  accessibilityRole="button"
-                  accessibilityLabel="Cancel reservation">
-                  <Text style={[styles.actionGhostText, isDark && styles.actionGhostTextDark]}>Cancel</Text>
-                </Pressable>
-                <Pressable
-                  style={({ pressed }) => [styles.detailsBtnWrap, pressed && styles.detailsBtnWrapPressed]}
-                  onPress={() => onViewDetails(item)}
-                  accessibilityRole="button"
-                  accessibilityLabel="View vehicle details">
-                  <LinearGradient
-                    colors={[GRADIENT_RED, GRADIENT_GREEN]}
-                    start={{ x: 0, y: 0.5 }}
-                    end={{ x: 1, y: 0.5 }}
-                    style={styles.detailsGradient}>
-                    <Text style={styles.detailsBtnText}>View details</Text>
-                    <Ionicons name="chevron-forward" size={18} color="#FFFFFF" />
-                  </LinearGradient>
-                </Pressable>
-              </View>
-            </View>
-          );
-        }}
+        renderItem={renderReservationItem}
+        extraData={cardBg}
         contentContainerStyle={[styles.list, { backgroundColor: pageBg }]}
+        windowSize={7}
+        initialNumToRender={8}
+        maxToRenderPerBatch={8}
+        updateCellsBatchingPeriod={50}
       />
     </View>
   );
