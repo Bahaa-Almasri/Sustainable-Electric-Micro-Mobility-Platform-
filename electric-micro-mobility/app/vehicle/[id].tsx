@@ -5,7 +5,7 @@ import { ActivityIndicator, Alert, Pressable, StyleSheet, View } from 'react-nat
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Colors } from '@/constants/theme';
+import { Colors, LoaderAccent } from '@/constants/theme';
 import { useAuth } from '@/contexts/auth-context';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { createReservation, fetchVehicleDetail, startRide, type VehicleWithState } from '@/lib/mobility-api';
@@ -75,7 +75,7 @@ export default function VehicleDetailScreen() {
   if (loading) {
     return (
       <ThemedView style={styles.centered}>
-        <ActivityIndicator size="large" color={colors.tint} />
+        <ActivityIndicator size="large" color={LoaderAccent} />
       </ThemedView>
     );
   }
@@ -113,7 +113,7 @@ export default function VehicleDetailScreen() {
           {busy ? (
             <ActivityIndicator color="#fff" />
           ) : (
-            <ThemedText style={styles.primaryText}>{available ? 'Start ride' : 'Not available'}</ThemedText>
+            <ThemedText style={styles.primaryText}>{available ? 'Scan to Ride' : 'Not available'}</ThemedText>
           )}
         </Pressable>
         <Pressable

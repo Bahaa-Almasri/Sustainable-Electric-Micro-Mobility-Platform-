@@ -16,6 +16,7 @@ import {
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { LoaderAccent } from '@/constants/theme';
 import { useAuth } from '@/contexts/auth-context';
 import { fetchRidesForUser, fetchUserMe } from '@/lib/mobility-api';
 import type { RideRow, UserRow } from '@/types/entities';
@@ -284,7 +285,7 @@ export default function AccountScreen() {
   if (loading && !refreshing) {
     return (
       <ThemedView style={[styles.centered, styles.loadingScreen]}>
-        <ActivityIndicator size="large" color={RED_ACCENT} />
+        <ActivityIndicator size="large" color={LoaderAccent} />
       </ThemedView>
     );
   }
@@ -293,7 +294,14 @@ export default function AccountScreen() {
     <FlatList
       data={rides}
       keyExtractor={(r) => r.ride_id}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={onRefresh}
+          tintColor={LoaderAccent}
+          colors={[LoaderAccent]}
+        />
+      }
       style={{ backgroundColor: PAGE_BG }}
       ListHeaderComponent={listHeader}
       ListEmptyComponent={

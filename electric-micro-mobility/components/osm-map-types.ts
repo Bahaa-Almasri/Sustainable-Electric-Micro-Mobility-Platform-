@@ -1,4 +1,4 @@
-import type { VehicleWithState } from '@/types/entities';
+import type { StationRow } from '@/types/entities';
 
 export type MapCameraRegion = {
   latitude: number;
@@ -8,12 +8,22 @@ export type MapCameraRegion = {
 };
 
 export type OsmMapViewRef = {
-  animateToRegion: (region: MapCameraRegion, vehicles?: VehicleWithState[]) => void;
+  animateToRegion: (region: MapCameraRegion, stations?: StationRow[], userLocation?: MapUserLocation | null) => void;
 };
+
+export type MapUserLocation = {
+  latitude: number;
+  longitude: number;
+};
+
+export type StationMarkerMode = 'browse' | 'parking';
 
 export type OsmMapViewProps = {
   style?: object;
   region: MapCameraRegion;
-  vehicles: VehicleWithState[];
-  onVehiclePress: (vehicleId: string) => void;
+  stations: StationRow[];
+  userLocation: MapUserLocation | null;
+  onStationPress: (stationId: string) => void;
+  /** Browse: badge = available vehicles. Parking: badge = free parking spots; pin shows P. */
+  stationMarkerMode?: StationMarkerMode;
 };

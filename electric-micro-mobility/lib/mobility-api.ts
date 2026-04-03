@@ -7,6 +7,7 @@ import type {
   ReservationRow,
   RideRow,
   RideRowWithVehicle,
+  StationRow,
   TicketRow,
   UserRow,
   VehicleWithState,
@@ -23,6 +24,42 @@ function errMessage(e: unknown): string {
 export async function fetchVehiclesForMap(): Promise<{ data: VehicleWithState[]; error: string | null }> {
   try {
     const data = await apiFetch<VehicleWithState[]>('/vehicles/available');
+    return { data: Array.isArray(data) ? data : [], error: null };
+  } catch (e) {
+    return { data: [], error: errMessage(e) };
+  }
+}
+
+export async function fetchActiveStations(): Promise<{ data: StationRow[]; error: string | null }> {
+  try {
+    const data = await apiFetch<StationRow[]>('/stations/active');
+    return { data: Array.isArray(data) ? data : [], error: null };
+  } catch (e) {
+    return { data: [], error: errMessage(e) };
+  }
+}
+
+/** Stations with at least one free parking slot (capacity − docked vehicles not on active ride). */
+export async function fetchParkingAvailableStations(): Promise<{
+  data: StationRow[];
+  error: string | null;
+}> {
+  try {
+    const data = await apiFetch<StationRow[]>('/stations/parking-available');
+    return { data: Array.isArray(data) ? data : [], error: null };
+  } catch (e) {
+    return { data: [], error: errMessage(e) };
+  }
+}
+
+export async function fetchVehiclesForStation(stationId: string): Promise<{
+  data: VehicleWithState[];
+  error: string | null;
+}> {
+  try {
+    const data = await apiFetch<VehicleWithState[]>(
+      `/stations/${encodeURIComponent(stationId)}/vehicles`
+    );
     return { data: Array.isArray(data) ? data : [], error: null };
   } catch (e) {
     return { data: [], error: errMessage(e) };

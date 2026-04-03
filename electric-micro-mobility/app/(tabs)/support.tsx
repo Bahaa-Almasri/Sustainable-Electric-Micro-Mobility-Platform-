@@ -17,7 +17,7 @@ import {
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Colors } from '@/constants/theme';
+import { Colors, LoaderAccent } from '@/constants/theme';
 import { useAuth } from '@/contexts/auth-context';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { createSupportTicket, fetchSupportTickets } from '@/lib/mobility-api';
@@ -120,7 +120,7 @@ export default function SupportScreen() {
   if (loading && !refreshing) {
     return (
       <ThemedView style={[styles.centered, { backgroundColor: PAGE_BG }]}>
-        <ActivityIndicator size="large" color={RED_ACCENT} />
+        <ActivityIndicator size="large" color={LoaderAccent} />
       </ThemedView>
     );
   }
@@ -140,7 +140,14 @@ export default function SupportScreen() {
       <FlatList
         data={tickets}
         keyExtractor={(t) => t.ticket_id}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={LoaderAccent}
+            colors={[LoaderAccent]}
+          />
+        }
         style={{ backgroundColor: PAGE_BG }}
         ListEmptyComponent={
           <View style={styles.emptyWrap}>

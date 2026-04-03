@@ -16,7 +16,7 @@ import {
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Colors } from '@/constants/theme';
+import { Colors, LoaderAccent } from '@/constants/theme';
 import { useAuth } from '@/contexts/auth-context';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { fetchRidePackages, fetchWalletOverview, purchaseRidePackage } from '@/lib/mobility-api';
@@ -26,7 +26,6 @@ type MethodRow = PaymentMethodRow;
 
 const GRADIENT_GREEN = '#1B4332';
 const GRADIENT_RED = '#D90429';
-const RED_ACCENT = '#FF4B41';
 const DEFAULT_BADGE_BG = '#B85C38';
 /** Light page background — matches reference off-white */
 const PAGE_BG_LIGHT = '#F2F2F4';
@@ -128,7 +127,7 @@ export default function WalletScreen() {
   if (loading && !refreshing) {
     return (
       <ThemedView style={[styles.centered, { backgroundColor: pageBg }]}>
-        <ActivityIndicator size="large" color={RED_ACCENT} />
+        <ActivityIndicator size="large" color={LoaderAccent} />
       </ThemedView>
     );
   }
@@ -136,7 +135,14 @@ export default function WalletScreen() {
   return (
     <FlatList
       data={[{ key: 'content' }]}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={onRefresh}
+          tintColor={LoaderAccent}
+          colors={[LoaderAccent]}
+        />
+      }
       keyExtractor={(i) => i.key}
       style={{ backgroundColor: pageBg }}
       showsVerticalScrollIndicator={false}

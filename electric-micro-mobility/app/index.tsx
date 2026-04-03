@@ -2,6 +2,7 @@ import { Redirect, type Href } from 'expo-router';
 import { ActivityIndicator, StyleSheet } from 'react-native';
 
 import { ThemedView } from '@/components/themed-view';
+import { LoaderAccent } from '@/constants/theme';
 import { useAuth } from '@/contexts/auth-context';
 
 export default function Index() {
@@ -10,7 +11,7 @@ export default function Index() {
   if (loading) {
     return (
       <ThemedView style={styles.centered}>
-        <ActivityIndicator size="large" />
+        <ActivityIndicator size="large" color={LoaderAccent} />
       </ThemedView>
     );
   }

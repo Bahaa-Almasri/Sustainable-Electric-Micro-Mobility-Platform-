@@ -7,7 +7,7 @@ from fastapi.responses import JSONResponse
 
 from app.config import settings
 from app.db import close_pool, get_pool, init_pool
-from app.routers import auth, reservations, rides, support, users, vehicles, wallet
+from app.routers import auth, reservations, rides, stations, support, users, vehicles, wallet
 
 logger = logging.getLogger(__name__)
 
@@ -43,6 +43,7 @@ async def _unhandled_exception_handler(request: Request, exc: Exception):
 app.include_router(auth.router)
 app.include_router(users.router)
 app.include_router(vehicles.router)
+app.include_router(stations.router)
 app.include_router(rides.router)
 app.include_router(wallet.router)
 app.include_router(reservations.router)

@@ -6,7 +6,7 @@ import { ActivityIndicator, StyleSheet } from 'react-native';
 
 import { PillTabBar } from '@/components/pill-tab-bar';
 import { ThemedView } from '@/components/themed-view';
-import { Colors } from '@/constants/theme';
+import { Colors, LoaderAccent } from '@/constants/theme';
 import { useAuth } from '@/contexts/auth-context';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
@@ -67,7 +67,7 @@ export default function TabLayout() {
   if (loading) {
     return (
       <ThemedView style={styles.loading}>
-        <ActivityIndicator size="large" color={colors.tint} />
+        <ActivityIndicator size="large" color={LoaderAccent} />
       </ThemedView>
     );
   }

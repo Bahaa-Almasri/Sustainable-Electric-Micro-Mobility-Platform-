@@ -20,6 +20,17 @@ export type VehicleWithState = {
   vehicles: VehicleRow | null;
 };
 
+export type StationRow = {
+  station_id: string;
+  name: string;
+  lat: number;
+  lng: number;
+  capacity: number | null;
+  available_vehicles: number;
+  /** From GET /stations/parking-available — free parking slots (ride / end-ride map). */
+  available_parking_spots?: number | null;
+};
+
 export type RideRow = {
   ride_id: string;
   user_id: string;

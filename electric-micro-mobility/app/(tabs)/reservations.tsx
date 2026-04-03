@@ -18,7 +18,7 @@ import {
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Colors } from '@/constants/theme';
+import { Colors, LoaderAccent } from '@/constants/theme';
 import { useAuth } from '@/contexts/auth-context';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { createReservation, fetchReservationsForUser } from '@/lib/mobility-api';
@@ -255,7 +255,7 @@ export default function ReservationsScreen() {
   if (loading && !refreshing) {
     return (
       <ThemedView style={[styles.centered, { backgroundColor: pageBg }]}>
-        <ActivityIndicator size="large" color={RED_ACCENT} />
+        <ActivityIndicator size="large" color={LoaderAccent} />
       </ThemedView>
     );
   }
@@ -336,7 +336,14 @@ export default function ReservationsScreen() {
       <FlatList
         data={items}
         keyExtractor={(r) => r.reservation_id}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={LoaderAccent}
+            colors={[LoaderAccent]}
+          />
+        }
         style={{ backgroundColor: pageBg }}
         ListHeaderComponent={
           <ThemedText

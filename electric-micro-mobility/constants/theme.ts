@@ -8,6 +8,9 @@ import { Platform } from 'react-native';
 const tintColorLight = '#0a7ea4';
 const tintColorDark = '#fff';
 
+/** App-wide loading spinners (tabs, splash screens, pull-to-refresh tint). */
+export const LoaderAccent = '#FF4B41';
+
 export const Colors = {
   light: {
     text: '#11181C',

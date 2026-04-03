@@ -19,9 +19,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Colors } from '@/constants/theme';
+import { LoaderAccent } from '@/constants/theme';
 import { useAuth } from '@/contexts/auth-context';
-import { useColorScheme } from '@/hooks/use-color-scheme';
 
 const PAGE_BG = '#FFFFFF';
 const CARD_BG = '#FFFFFF';
@@ -35,8 +34,6 @@ const GRADIENT_RED = '#D90429';
 
 export default function SignUpScreen() {
   const insets = useSafeAreaInsets();
-  const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme ?? 'light'];
   const { user, loading, configured, signUp } = useAuth();
 
   const [name, setName] = useState('');
@@ -113,7 +110,7 @@ export default function SignUpScreen() {
   if (loading) {
     return (
       <ThemedView style={[styles.centered, { paddingTop: insets.top }]}>
-        <ActivityIndicator size="large" color={colors.tint} />
+        <ActivityIndicator size="large" color={LoaderAccent} />
       </ThemedView>
     );
   }
