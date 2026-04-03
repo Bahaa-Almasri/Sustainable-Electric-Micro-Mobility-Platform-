@@ -41,7 +41,7 @@ export const OsmMapView = forwardRef<OsmMapViewRef, OsmMapViewProps>(function Os
         pushPayload(r, s, loc, true);
       },
     }),
-    [pushPayload, stationMarkerMode, rideMode]
+    [pushPayload]
   );
 
   useEffect(() => {

@@ -1,8 +1,12 @@
 import { useFocusEffect } from 'expo-router';
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, StyleSheet, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
+import {
+  ActiveRideBottomCard,
+  ActiveRideStatusChip,
+} from '@/components/active-ride-bottom-card';
 import { OsmMapView } from '@/components/osm-map-view';
 import { MapStationsFilterSheet } from '@/components/map-stations-filter-sheet';
 import type { OsmMapViewRef } from '@/components/osm-map-types';
@@ -10,7 +14,7 @@ import { ScanToRideModal } from '@/components/scan-to-ride-modal';
 import { StationDetailsPanel } from '@/components/station-details-panel';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Colors, LoaderAccent } from '@/constants/theme';
+import { LoaderAccent } from '@/constants/theme';
 import { useAuth } from '@/contexts/auth-context';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useMapScreen } from '@/hooks/use-map-screen';
@@ -20,14 +24,23 @@ import type { StationRow } from '@/types/entities';
 const RED_ACCENT = '#FF4B41';
 
 /**
- * Web map tab: same OSM / Leaflet stack as native (`map.tsx`) via WebView.
+ * Web map tab: same OSM / Leaflet stack as native (`map.tsx`) via iframe.
  */
 export default function MapScreenWeb() {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
-  const colors = Colors[colorScheme ?? 'light'];
   const { user } = useAuth();
-  const { region, stations, userLocation, loading, activeRide, ending, refresh, onEndRide } = useMapScreen();
+  const {
+    region,
+    stations,
+    parkingStations,
+    userLocation,
+    loading,
+    activeRide,
+    ending,
+    refresh,
+    onEndRide,
+  } = useMapScreen();
   const mapRef = useRef<OsmMapViewRef>(null);
   const mapHasBeenFocusedRef = useRef(false);
   const [selectedStation, setSelectedStation] = useState<StationRow | null>(null);
@@ -40,17 +53,33 @@ export default function MapScreenWeb() {
   const [mapFiltersVisible, setMapFiltersVisible] = useState(false);
   const [showEmptyStations, setShowEmptyStations] = useState(false);
 
-  const filteredStations = useMemo(
+  const rideActive = !!activeRide;
+
+  const browseStationList = useMemo(
     () => stations.filter((s) => showEmptyStations || (s.available_vehicles ?? 0) > 0),
     [showEmptyStations, stations]
   );
+
+  const mapStations = rideActive ? parkingStations : browseStationList;
   const hasMapFilters = showEmptyStations;
 
   const refreshAndAnimate = useCallback(async () => {
-    const { region: next, stations: nextStations } = await refresh();
-    const visibleStations = nextStations.filter((s) => showEmptyStations || (s.available_vehicles ?? 0) > 0);
-    mapRef.current?.animateToRegion(next, visibleStations, userLocation);
-  }, [refresh, showEmptyStations, userLocation]);
+    const { region: next, stations: rawNext } = await refresh();
+    const fitStations = rideActive
+      ? rawNext
+      : rawNext.filter((s) => showEmptyStations || (s.available_vehicles ?? 0) > 0);
+    mapRef.current?.animateToRegion(next, fitStations, userLocation);
+  }, [refresh, rideActive, showEmptyStations, userLocation]);
+
+  useEffect(() => {
+    if (!rideActive) return;
+    setSelectedStation(null);
+    setMapFiltersVisible(false);
+    setScanVisible(false);
+    setScanVehicleId(null);
+    setStationVehicles([]);
+    setStationError(null);
+  }, [rideActive]);
 
   const loadStationVehicles = useCallback(async (station: StationRow) => {
     setStationLoading(true);
@@ -83,14 +112,29 @@ export default function MapScreenWeb() {
     }, [refresh, refreshAndAnimate])
   );
 
-  const onStationPress = useCallback((stationId: string) => {
-    const station = filteredStations.find((s) => s.station_id === stationId);
-    if (!station) return;
-    setSelectedStation(station);
-    void loadStationVehicles(station);
-  }, [filteredStations, loadStationVehicles]);
+  const onStationPress = useCallback(
+    (stationId: string) => {
+      if (rideActive) {
+        const s = parkingStations.find((x) => x.station_id === stationId);
+        if (!s) return;
+        const spots = s.available_parking_spots ?? 0;
+        Alert.alert(
+          s.name ?? 'Station',
+          spots > 0
+            ? `${spots} free parking ${spots === 1 ? 'spot' : 'spots'} — you can end your ride here.`
+            : 'No parking spots available here.'
+        );
+        return;
+      }
+      const station = browseStationList.find((x) => x.station_id === stationId);
+      if (!station) return;
+      setSelectedStation(station);
+      void loadStationVehicles(station);
+    },
+    [browseStationList, loadStationVehicles, parkingStations, rideActive]
+  );
 
-  const onReserve = useCallback(async (vehicleId: string) => {
+  const onReserveList = useCallback(async (vehicleId: string) => {
     if (!user) return;
     setBusyVehicleId(vehicleId);
     const { error } = await createReservation(user.id, vehicleId);
@@ -110,17 +154,17 @@ export default function MapScreenWeb() {
     [scanVehicleId, stationVehicles]
   );
 
-  const openScanToRide = useCallback((vehicleId: string) => {
+  const openScanToRideList = useCallback((vehicleId: string) => {
     setScanVehicleId(vehicleId);
     setScanVisible(true);
   }, []);
 
-  const closeScanToRide = useCallback(() => {
+  const closeScanToRideList = useCallback(() => {
     setScanVisible(false);
     setScanVehicleId(null);
   }, []);
 
-  const onStartRideAfterScan = useCallback(async () => {
+  const onStartRideAfterScanList = useCallback(async () => {
     if (!user || !scanVehicleId) return;
     setBusyVehicleId(scanVehicleId);
     const { error } = await startRide({
@@ -134,105 +178,112 @@ export default function MapScreenWeb() {
       Alert.alert('Cannot start ride', error);
       return;
     }
-    Alert.alert('Ride started', 'Have a safe trip. You can end the ride from the Map tab.');
-    closeScanToRide();
+    Alert.alert('Ride started', 'Have a safe trip.');
+    closeScanToRideList();
     setSelectedStation(null);
     await refreshAndAnimate();
-  }, [closeScanToRide, region.latitude, region.longitude, refreshAndAnimate, scanVehicleId, user, userLocation?.latitude, userLocation?.longitude]);
+  }, [closeScanToRideList, region.latitude, region.longitude, refreshAndAnimate, scanVehicleId, user, userLocation?.latitude, userLocation?.longitude]);
 
   return (
     <View style={styles.flex}>
-      {activeRide ? (
-        <ThemedView style={[styles.banner, { borderColor: colors.tint, backgroundColor: colors.background }]}>
-          <View style={styles.bannerText}>
-            <ThemedText type="defaultSemiBold">Ride in progress</ThemedText>
-            <ThemedText style={styles.muted}>
-              {activeRide.vehicles?.model ?? 'Vehicle'} · {activeRide.vehicle_id.slice(0, 8)}…
-            </ThemedText>
-          </View>
-          <Pressable
-            style={[styles.endBtn, { backgroundColor: colors.tint }]}
-            onPress={onEndRide}
-            disabled={ending}>
-            {ending ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <ThemedText style={styles.endBtnText}>End ride</ThemedText>
-            )}
-          </Pressable>
-        </ThemedView>
-      ) : null}
       {loading ? (
         <ThemedView style={styles.overlay}>
           <ActivityIndicator size="large" color={LoaderAccent} />
         </ThemedView>
       ) : null}
+
       <OsmMapView
         ref={mapRef}
         style={styles.map}
         region={region}
-        stations={filteredStations}
+        stations={mapStations}
         userLocation={userLocation}
         onStationPress={onStationPress}
+        stationMarkerMode={rideActive ? 'parking' : 'browse'}
       />
-      <View style={styles.topControls}>
-        <Pressable
-          style={({ pressed }) => [
-            styles.filtersBtn,
-            {
-              backgroundColor: RED_ACCENT,
-              borderColor: RED_ACCENT,
-              opacity: pressed ? 0.9 : 1,
-            },
-          ]}
-          onPress={() => setMapFiltersVisible(true)}>
-          <ThemedText style={[styles.filtersBtnText, { color: '#FFFFFF' }]}>Filters</ThemedText>
-          {hasMapFilters ? (
-            <View style={[styles.filterDot, { backgroundColor: '#FFFFFF' }]} />
+
+      {rideActive ? (
+        <>
+          <View style={styles.rideTopChrome} pointerEvents="box-none">
+            <ActiveRideStatusChip isDark={isDark} />
+          </View>
+          {activeRide ? (
+            <ActiveRideBottomCard
+              activeRide={activeRide}
+              isDark={isDark}
+              ending={ending}
+              onEndRide={onEndRide}
+            />
           ) : null}
-        </Pressable>
-      </View>
-      <Pressable style={[styles.fab, { backgroundColor: RED_ACCENT }]} onPress={refreshAndAnimate}>
-        <Ionicons name="refresh" size={20} color="#FFFFFF" />
-      </Pressable>
-      <StationDetailsPanel
-        visible={!!selectedStation}
-        station={selectedStation}
-        vehicles={stationVehicles}
-        loading={stationLoading}
-        error={stationError}
-        busyVehicleId={busyVehicleId}
-        activeVehicleId={activeRide?.vehicle_id ?? null}
-        userLocation={userLocation}
-        accentColor={RED_ACCENT}
-        isDark={isDark}
-        onClose={() => setSelectedStation(null)}
-        onReserve={onReserve}
-        onStartRide={openScanToRide}
-      />
-      <ScanToRideModal
-        visible={scanVisible}
-        accentColor={RED_ACCENT}
-        isDark={isDark}
-        busy={busyVehicleId === scanVehicleId}
-        expectedPayloads={[
-          ...(selectedScanVehicle?.vehicles?.qr_code ? [selectedScanVehicle.vehicles.qr_code] : []),
-          ...(selectedScanVehicle?.vehicle_id ? [selectedScanVehicle.vehicle_id] : []),
-        ]}
-        onClose={closeScanToRide}
-        onScanConfirmed={onStartRideAfterScan}
-      />
-      <MapStationsFilterSheet
-        visible={mapFiltersVisible}
-        isDark={isDark}
-        accentColor={RED_ACCENT}
-        showEmptyStations={showEmptyStations}
-        visibleStationsCount={filteredStations.length}
-        totalStationsCount={stations.length}
-        onClose={() => setMapFiltersVisible(false)}
-        onToggleShowEmptyStations={() => setShowEmptyStations((prev) => !prev)}
-        onReset={() => setShowEmptyStations(false)}
-      />
+          <Pressable
+            style={[styles.fabRide, { backgroundColor: RED_ACCENT }]}
+            onPress={refreshAndAnimate}
+            accessibilityLabel="Refresh map">
+            <Ionicons name="refresh" size={20} color="#FFFFFF" />
+          </Pressable>
+        </>
+      ) : (
+        <>
+          <View style={styles.topControls}>
+            <Pressable
+              style={({ pressed }) => [
+                styles.filtersBtn,
+                {
+                  backgroundColor: RED_ACCENT,
+                  borderColor: RED_ACCENT,
+                  opacity: pressed ? 0.9 : 1,
+                },
+              ]}
+              onPress={() => setMapFiltersVisible(true)}>
+              <ThemedText style={[styles.filtersBtnText, { color: '#FFFFFF' }]}>Filters</ThemedText>
+              {hasMapFilters ? (
+                <View style={[styles.filterDot, { backgroundColor: '#FFFFFF' }]} />
+              ) : null}
+            </Pressable>
+          </View>
+          <Pressable style={[styles.fab, { backgroundColor: RED_ACCENT }]} onPress={refreshAndAnimate}>
+            <Ionicons name="refresh" size={20} color="#FFFFFF" />
+          </Pressable>
+          <StationDetailsPanel
+            visible={!!selectedStation}
+            station={selectedStation}
+            vehicles={stationVehicles}
+            loading={stationLoading}
+            error={stationError}
+            busyVehicleId={busyVehicleId}
+            activeVehicleId={null}
+            userLocation={userLocation}
+            accentColor={RED_ACCENT}
+            isDark={isDark}
+            onClose={() => setSelectedStation(null)}
+            onReserve={onReserveList}
+            onStartRide={openScanToRideList}
+          />
+          <ScanToRideModal
+            visible={scanVisible}
+            accentColor={RED_ACCENT}
+            isDark={isDark}
+            busy={busyVehicleId === scanVehicleId}
+            expectedPayloads={[
+              ...(selectedScanVehicle?.vehicles?.qr_code ? [selectedScanVehicle.vehicles.qr_code] : []),
+              ...(selectedScanVehicle?.vehicle_id ? [selectedScanVehicle.vehicle_id] : []),
+            ]}
+            onClose={closeScanToRideList}
+            onScanConfirmed={onStartRideAfterScanList}
+          />
+          <MapStationsFilterSheet
+            visible={mapFiltersVisible}
+            isDark={isDark}
+            accentColor={RED_ACCENT}
+            showEmptyStations={showEmptyStations}
+            visibleStationsCount={browseStationList.length}
+            totalStationsCount={stations.length}
+            onClose={() => setMapFiltersVisible(false)}
+            onToggleShowEmptyStations={() => setShowEmptyStations((prev) => !prev)}
+            onReset={() => setShowEmptyStations(false)}
+          />
+        </>
+      )}
     </View>
   );
 }
@@ -247,18 +298,15 @@ const styles = StyleSheet.create({
     zIndex: 2,
     pointerEvents: 'none',
   },
-  banner: {
-    flexDirection: 'row',
+  rideTopChrome: {
+    position: 'absolute',
+    top: 14,
+    left: 0,
+    right: 0,
+    zIndex: 5,
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    zIndex: 3,
-    gap: 12,
+    pointerEvents: 'box-none',
   },
-  bannerText: { flex: 1, gap: 2 },
-  muted: { opacity: 0.75, fontSize: 13 },
   topControls: {
     position: 'absolute',
     top: 14,
@@ -285,14 +333,6 @@ const styles = StyleSheet.create({
     height: 8,
     borderRadius: 99,
   },
-  endBtn: {
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 10,
-    minWidth: 100,
-    alignItems: 'center',
-  },
-  endBtnText: { color: '#fff', fontWeight: '700' },
   fab: {
     position: 'absolute',
     right: 16,
@@ -304,5 +344,15 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     zIndex: 4,
   },
-  fabText: { color: '#fff', fontSize: 22, fontWeight: '700' },
+  fabRide: {
+    position: 'absolute',
+    right: 16,
+    bottom: 200,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 5,
+  },
 });

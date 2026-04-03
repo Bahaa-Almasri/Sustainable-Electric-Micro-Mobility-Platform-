@@ -102,6 +102,8 @@ export const OSM_LEAFLET_HTML = `<!DOCTYPE html>
           map.setView(DEFAULT_CENTER, DEFAULT_ZOOM);
         }
       }
+      var payloadStationMarkerMode = 'browse';
+      var payloadRideMode = false;
       function stationIcon(station) {
         var mode = payloadStationMarkerMode || 'browse';
         var isParking = mode === 'parking';
@@ -127,8 +129,6 @@ export const OSM_LEAFLET_HTML = `<!DOCTYPE html>
           popupAnchor: [0, -42]
         });
       }
-      var payloadStationMarkerMode = 'browse';
-      var payloadRideMode = false;
       function setStations(stations) {
         stationsLayer.clearLayers();
         if (!stations || !stations.length) return;

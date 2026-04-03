@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { memo, useCallback, useEffect, useState } from 'react';
+import { Fragment, memo, useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
@@ -9,6 +9,7 @@ import {
   StyleSheet,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
 import {
@@ -20,14 +21,60 @@ import { fetchVehicleDetail } from '@/lib/mobility-api';
 import type { RideRowWithVehicle, VehicleWithState } from '@/types/entities';
 
 const RED = '#FF4B41';
+
+type ActiveRideStatusChipProps = { isDark: boolean };
+
+/** Minimal top indicator — map stays primary. */
+export const ActiveRideStatusChip = memo(function ActiveRideStatusChip({ isDark }: ActiveRideStatusChipProps) {
+  const bg = isDark ? 'rgba(26,29,31,0.92)' : 'rgba(255,255,255,0.94)';
+  const border = isDark ? 'rgba(255,255,255,0.14)' : 'rgba(17,24,28,0.1)';
+  return (
+    <View style={[statusStyles.wrap, { backgroundColor: bg, borderColor: border }]}>
+      <View style={statusStyles.dot} />
+      <ThemedText style={statusStyles.text}>Active ride</ThemedText>
+    </View>
+  );
+});
+
+const statusStyles = StyleSheet.create({
+  wrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    alignSelf: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 999,
+    borderWidth: 1,
+  },
+  dot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: RED,
+  },
+  text: {
+    fontSize: 13,
+    fontWeight: '800',
+    letterSpacing: 0.2,
+  },
+});
 const CARD_BG_LIGHT = '#FFFFFF';
 const CARD_BG_DARK = '#1A1D1F';
 const MUTED_LIGHT = '#687076';
 const MUTED_DARK = '#9BA1A6';
 
+/** Parse API instants so naive ISO strings are treated as UTC (matches DB storage). */
+function parseRideStartInstant(startIso: string): number {
+  const s = startIso.trim();
+  const hasExplicitTz = /[zZ]$|[+-]\d{2}:\d{2}$/.test(s);
+  const t = hasExplicitTz ? new Date(s).getTime() : new Date(`${s.replace(/\s*$/, '')}Z`).getTime();
+  return t;
+}
+
 function formatRideDuration(startIso: string | null | undefined): string {
   if (!startIso) return '00:00';
-  const start = new Date(startIso).getTime();
+  const start = parseRideStartInstant(startIso);
   if (Number.isNaN(start)) return '00:00';
   const sec = Math.max(0, Math.floor((Date.now() - start) / 1000));
   const m = Math.floor(sec / 60);
@@ -48,6 +95,7 @@ export const ActiveRideBottomCard = memo(function ActiveRideBottomCard({
   ending,
   onEndRide,
 }: ActiveRideBottomCardProps) {
+  const insets = useSafeAreaInsets();
   const vehicleType = activeRide.vehicles?.type ?? null;
   const visual = getVehicleVisual(vehicleType);
   const imageSource = getVehicleImageSource(vehicleType);
@@ -81,11 +129,22 @@ export const ActiveRideBottomCard = memo(function ActiveRideBottomCard({
   const strong = isDark ? '#ECEDEE' : '#11181C';
   const chipBg = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(17,24,28,0.06)';
 
+  const liftShadow: object | undefined = isDark
+    ? undefined
+    : Platform.OS === 'ios'
+      ? SHADOW_IOS
+      : Platform.OS === 'android'
+        ? SHADOW_ANDROID
+        : Platform.OS === 'web'
+          ? SHADOW_WEB
+          : undefined;
+
   return (
     <View
       style={[
         styles.cardWrap,
-        !isDark && Platform.select({ ios: SHADOW_IOS, android: SHADOW_ANDROID, web: SHADOW_WEB }),
+        { bottom: (Platform.OS === 'ios' ? 8 : 12) + insets.bottom },
+        liftShadow || undefined,
       ]}>
       <View style={[styles.card, { backgroundColor: cardBg, borderColor: border }]}>
         <View style={styles.topRow}>
@@ -142,10 +201,10 @@ export const ActiveRideBottomCard = memo(function ActiveRideBottomCard({
             {ending ? (
               <ActivityIndicator color="#fff" />
             ) : (
-              <>
+              <Fragment>
                 <Ionicons name="stop-circle" size={22} color="#fff" style={styles.endIcon} />
                 <ThemedText style={styles.endBtnText}>Stop ride</ThemedText>
-              </>
+              </Fragment>
             )}
           </LinearGradient>
         </Pressable>
@@ -170,7 +229,6 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 12,
     right: 12,
-    bottom: Platform.OS === 'ios' ? 28 : 20,
     zIndex: 6,
   },
   card: {
