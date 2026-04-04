@@ -1,7 +1,7 @@
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, useFocusEffect, type Href } from 'expo-router';
-import { memo, useCallback, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -21,7 +21,7 @@ import { ThemedView } from '@/components/themed-view';
 import { Colors, LoaderAccent } from '@/constants/theme';
 import { useAuth } from '@/contexts/auth-context';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import { createReservation, fetchReservationsForUser } from '@/lib/mobility-api';
+import { cancelReservation, createReservation, fetchReservationsForUser } from '@/lib/mobility-api';
 import type { ReservationRow } from '@/types/entities';
 
 const PAGE_BG = '#F9F9F9';
@@ -30,6 +30,7 @@ const MUTED_TEXT = '#757575';
 const RED_ACCENT = '#FF4B41';
 const GRADIENT_GREEN = '#1B4332';
 const GRADIENT_RED = '#D90429';
+const GRADIENT_BLACK = '#11181C';
 const INPUT_BORDER = 'rgba(0,0,0,0.08)';
 const AVATAR_GRADIENT_START = '#6B4540';
 const AVATAR_GRADIENT_END = '#2A3D2E';
@@ -72,13 +73,28 @@ function formatReservationWhen(iso: string | null): string {
   return `${date} • ${time}`;
 }
 
+function isActiveReservation(item: ReservationRow): boolean {
+  if ((item.status ?? '').toLowerCase() !== 'active') return false;
+  if (!item.expires_at) return true;
+  const expiresMs = new Date(item.expires_at).getTime();
+  if (Number.isNaN(expiresMs)) return true;
+  return expiresMs > Date.now();
+}
+
 type ReservationRowCardProps = {
   item: ReservationRow;
   cardBg: string;
   isDark: boolean;
   colorsText: string;
+  cancelling: boolean;
   onViewDetails: (item: ReservationRow) => void;
-  onCancelReservation: () => void;
+  onCancelReservation: (item: ReservationRow) => void;
+};
+
+type CancelReservationSelection = {
+  reservation_id: string;
+  vehicle_id: string;
+  status: string | null;
 };
 
 const ReservationRowCard = memo(function ReservationRowCard({
@@ -86,6 +102,7 @@ const ReservationRowCard = memo(function ReservationRowCard({
   cardBg,
   isDark,
   colorsText,
+  cancelling,
   onViewDetails,
   onCancelReservation,
 }: ReservationRowCardProps) {
@@ -137,11 +154,22 @@ const ReservationRowCard = memo(function ReservationRowCard({
           { backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : '#F0F0F0' },
         ]}>
         <Pressable
-          style={({ pressed }) => [styles.actionGhost, pressed && styles.actionPressed]}
-          onPress={onCancelReservation}
+          style={({ pressed }) => [
+            styles.actionDangerBtn,
+            (pressed || cancelling) && styles.actionPressed,
+          ]}
+          onPress={() => onCancelReservation(item)}
+          disabled={cancelling}
           accessibilityRole="button"
           accessibilityLabel="Cancel reservation">
-          <Text style={[styles.actionGhostText, isDark && styles.actionGhostTextDark]}>Cancel</Text>
+          {cancelling ? (
+            <ActivityIndicator color="#FFFFFF" size="small" />
+          ) : (
+            <View style={styles.actionDangerBtnInner}>
+              <Ionicons name="close-circle-outline" size={16} color="#FFFFFF" />
+              <Text style={styles.actionDangerText}>Remove reservation</Text>
+            </View>
+          )}
         </Pressable>
         <Pressable
           style={({ pressed }) => [styles.detailsBtnWrap, pressed && styles.detailsBtnWrapPressed]}
@@ -178,16 +206,51 @@ export default function ReservationsScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [reserveOpen, setReserveOpen] = useState(false);
   const [vehicleIdInput, setVehicleIdInput] = useState('');
+  const [cancellingReservationId, setCancellingReservationId] = useState<string | null>(null);
+  const [selectedReservation, setSelectedReservation] = useState<CancelReservationSelection | null>(null);
+  const selectedReservationRef = useRef<CancelReservationSelection | null>(null);
+  const [cancelConfirmOpen, setCancelConfirmOpen] = useState(false);
+  const [deleteSuccessOpen, setDeleteSuccessOpen] = useState(false);
+  const [deleteSuccessMessage, setDeleteSuccessMessage] = useState('');
   const screenFocusRef = useRef(false);
+
+  useEffect(() => {
+    selectedReservationRef.current = selectedReservation;
+    console.log('[Reservations] selectedReservation state updated', {
+      selectedReservation,
+      reservation_id: selectedReservation?.reservation_id ?? null,
+    });
+  }, [selectedReservation]);
+
+  useEffect(() => {
+    console.log('[Reservations] cancel confirm modal state changed', {
+      open: cancelConfirmOpen,
+      reservation_id: selectedReservationRef.current?.reservation_id ?? null,
+    });
+  }, [cancelConfirmOpen]);
 
   const load = useCallback(async (opts?: { silent?: boolean }) => {
     const silent = opts?.silent ?? false;
-    if (!user) return;
+    if (!user) return [] as ReservationRow[];
     if (!silent) setLoading(true);
     try {
       const { data, error } = await fetchReservationsForUser(user.id);
-      if (!error && data) setItems(data as ReservationRow[]);
-      else setItems([]);
+      if (!error && data) {
+        const allRows = data as ReservationRow[];
+        const activeRows = allRows.filter(isActiveReservation);
+        console.log('[Reservations] load()', {
+          userId: user.id,
+          rawCount: allRows.length,
+          rawReservationIds: allRows.map((row) => row.reservation_id),
+          activeCount: activeRows.length,
+          activeReservationIds: activeRows.map((row) => row.reservation_id),
+        });
+        setItems(activeRows);
+        return activeRows;
+      }
+      console.log('[Reservations] load() failed', { userId: user.id, error: error?.message ?? 'unknown' });
+      setItems([]);
+      return [] as ReservationRow[];
     } finally {
       setLoading(false);
     }
@@ -214,12 +277,93 @@ export default function ReservationsScreen() {
     router.push(`/vehicle/${r.vehicle_id}` as Href);
   }, []);
 
-  const onCancelReservation = useCallback(() => {
-    Alert.alert(
-      'Cancel reservation',
-      'Cancellation is not available in the app yet. Your hold will end automatically at the expiry time, or contact support for help.'
-    );
+  const onCancelReservation = useCallback(
+    (reservation: ReservationRow) => {
+      if (!user) return;
+      const nextSelection: CancelReservationSelection = {
+        reservation_id: reservation.reservation_id,
+        vehicle_id: reservation.vehicle_id,
+        status: reservation.status ?? null,
+      };
+      const status = (nextSelection.status ?? '').toLowerCase();
+      if (status !== 'active') {
+        Alert.alert('Cannot cancel', 'Only active reservations can be cancelled.');
+        return;
+      }
+      console.log('[Reservations] cancel button clicked', {
+        clickedReservationId: reservation.reservation_id,
+        clickedVehicleId: reservation.vehicle_id,
+        clickedStatus: reservation.status ?? null,
+        nextSelection,
+      });
+      selectedReservationRef.current = nextSelection;
+      console.log('[Reservations] setSelectedReservation requested', {
+        reservation_id: nextSelection.reservation_id,
+        vehicle_id: nextSelection.vehicle_id,
+        status: nextSelection.status,
+      });
+      setSelectedReservation(nextSelection);
+      setCancelConfirmOpen(true);
+      console.log('[Reservations] cancel confirm modal opening', {
+        reservation_id: nextSelection.reservation_id,
+      });
+    },
+    [user]
+  );
+
+  const closeCancelConfirm = useCallback(() => {
+    setCancelConfirmOpen(false);
+    setSelectedReservation(null);
+    selectedReservationRef.current = null;
   }, []);
+
+  const onConfirmCancelReservation = useCallback(async () => {
+    if (!user) return;
+    const currentSelection = selectedReservationRef.current;
+    const reservationId = currentSelection?.reservation_id?.trim();
+    if (!reservationId) {
+      Alert.alert('Cancellation failed', 'Missing reservation_id for selected row.');
+      return;
+    }
+    setCancelConfirmOpen(false);
+    setCancellingReservationId(reservationId);
+    console.log('[Reservations] confirm cancel pressed -> API request', {
+      userId: user.id,
+      selectedReservation: currentSelection,
+      reservation_id: reservationId,
+    });
+    try {
+      const { data: deleteResult, error } = await cancelReservation(user.id, reservationId);
+      if (error) {
+        Alert.alert('Cancellation failed', error.message);
+        return;
+      }
+      if (!deleteResult?.ok) {
+        Alert.alert('Cancellation failed', 'Server did not confirm deletion.');
+        return;
+      }
+      const refreshedItems = await load({ silent: true });
+      const stillPresent = refreshedItems.some((x) => x.reservation_id === reservationId);
+      console.log('[Reservations] remove post-refetch check', {
+        reservation_id: reservationId,
+        stillPresentInActiveList: stillPresent,
+        refreshedReservationIds: refreshedItems.map((x) => x.reservation_id),
+      });
+      if (stillPresent) {
+        Alert.alert(
+          'Removal not confirmed',
+          'Reservation still appears after refresh. Please retry and check backend logs.'
+        );
+        return;
+      }
+      setDeleteSuccessMessage(deleteResult.message?.trim() || 'Your vehicle hold has been released.');
+      setDeleteSuccessOpen(true);
+    } finally {
+      setCancellingReservationId(null);
+      setSelectedReservation(null);
+      selectedReservationRef.current = null;
+    }
+  }, [load, user]);
 
   async function submitReservation() {
     const id = vehicleIdInput.trim();
@@ -245,11 +389,12 @@ export default function ReservationsScreen() {
         cardBg={cardBg}
         isDark={isDark}
         colorsText={colors.text}
+        cancelling={cancellingReservationId === item.reservation_id}
         onViewDetails={onViewDetails}
         onCancelReservation={onCancelReservation}
       />
     ),
-    [cardBg, isDark, colors.text, onCancelReservation, onViewDetails]
+    [cancellingReservationId, cardBg, isDark, colors.text, onCancelReservation, onViewDetails]
   );
 
   if (loading && !refreshing) {
@@ -331,6 +476,85 @@ export default function ReservationsScreen() {
             </View>
           </Pressable>
         </Pressable>
+      </Modal>
+
+      <Modal
+        visible={cancelConfirmOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={closeCancelConfirm}>
+        <View style={styles.successOverlay}>
+          <View
+            style={[
+              styles.successCard,
+              {
+                backgroundColor: isDark ? '#151718' : '#FFFFFF',
+                borderColor: isDark ? 'rgba(255,255,255,0.12)' : 'rgba(17,24,28,0.08)',
+              },
+            ]}>
+            <LinearGradient colors={[GRADIENT_RED, GRADIENT_BLACK]} style={styles.successIconWrap}>
+              <Ionicons name="alert-circle-outline" size={28} color="#FFFFFF" />
+            </LinearGradient>
+            <ThemedText
+              type="subtitle"
+              style={styles.successTitle}
+              lightColor={ON_SURFACE}
+              darkColor={colors.text}>
+              Cancel reservation
+            </ThemedText>
+            <ThemedText style={styles.successSubtitle} lightColor={MUTED_TEXT} darkColor={colors.icon}>
+              Do you want to cancel reservation #{selectedReservation?.reservation_id?.slice(0, 8).toUpperCase() ?? 'N/A'} now?
+            </ThemedText>
+            <View style={styles.modalRow}>
+              <Pressable
+                style={({ pressed }) => [styles.modalCancel, pressed && styles.modalCancelPressed]}
+                onPress={closeCancelConfirm}>
+                <Text style={[styles.modalCancelText, isDark && styles.modalCancelTextDark]}>Keep</Text>
+              </Pressable>
+              <Pressable
+                style={({ pressed }) => [styles.modalOk, pressed && styles.modalOkPressed]}
+                onPress={() => {
+                  void onConfirmCancelReservation();
+                }}>
+                <Text style={styles.modalOkText}>Cancel reservation</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={deleteSuccessOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setDeleteSuccessOpen(false)}>
+        <View style={styles.successOverlay}>
+          <View
+            style={[
+              styles.successCard,
+              {
+                backgroundColor: isDark ? '#151718' : '#FFFFFF',
+                borderColor: isDark ? 'rgba(255,255,255,0.12)' : 'rgba(17,24,28,0.08)',
+              },
+            ]}>
+            <LinearGradient colors={[GRADIENT_RED, GRADIENT_BLACK]} style={styles.successIconWrap}>
+              <Ionicons name="checkmark" size={28} color="#FFFFFF" />
+            </LinearGradient>
+            <ThemedText
+              type="subtitle"
+              style={styles.successTitle}
+              lightColor={ON_SURFACE}
+              darkColor={colors.text}>
+              Delete successful
+            </ThemedText>
+            <ThemedText style={styles.successSubtitle} lightColor={MUTED_TEXT} darkColor={colors.icon}>
+              {deleteSuccessMessage}
+            </ThemedText>
+            <Pressable style={styles.successButton} onPress={() => setDeleteSuccessOpen(false)}>
+              <Text style={styles.successButtonText}>Done</Text>
+            </Pressable>
+          </View>
+        </View>
       </Modal>
 
       <FlatList
@@ -514,22 +738,29 @@ const styles = StyleSheet.create({
     marginHorizontal: -16,
     paddingHorizontal: 16,
   },
-  actionGhost: {
-    paddingVertical: 10,
-    paddingHorizontal: 8,
+  actionDangerBtn: {
+    minHeight: 40,
+    minWidth: 158,
+    paddingVertical: 9,
+    paddingHorizontal: 12,
     borderRadius: 999,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#D90429',
   },
   actionPressed: {
     opacity: 0.75,
   },
-  actionGhostText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: RED_ACCENT,
-    letterSpacing: 0.2,
+  actionDangerBtnInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
   },
-  actionGhostTextDark: {
-    color: '#FF6B62',
+  actionDangerText: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    letterSpacing: 0.15,
   },
   detailsBtnWrap: {
     borderRadius: 999,
@@ -629,5 +860,55 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     fontSize: 15,
     letterSpacing: 0.2,
+  },
+  successOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(8,12,14,0.52)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 20,
+  },
+  successCard: {
+    width: '100%',
+    maxWidth: 360,
+    borderRadius: 20,
+    borderWidth: 1,
+    padding: 20,
+    alignItems: 'center',
+    gap: 12,
+  },
+  successIconWrap: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  successTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+    textAlign: 'center',
+    letterSpacing: -0.2,
+  },
+  successSubtitle: {
+    fontSize: 14,
+    lineHeight: 20,
+    textAlign: 'center',
+    opacity: 0.88,
+  },
+  successButton: {
+    marginTop: 4,
+    borderRadius: 12,
+    backgroundColor: RED_ACCENT,
+    minHeight: 44,
+    minWidth: 136,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 16,
+  },
+  successButtonText: {
+    color: '#FFFFFF',
+    fontWeight: '800',
+    fontSize: 15,
   },
 });

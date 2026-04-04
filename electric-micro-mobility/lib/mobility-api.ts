@@ -146,15 +146,91 @@ export async function createReservation(
   _userId: string,
   vehicleId: string,
   minutesTtl = 15
-): Promise<{ error: Error | null }> {
+): Promise<{
+  data: {
+    ok?: boolean;
+    message?: string;
+    reservation?: {
+      reservation_id?: string;
+      user_id?: string;
+      vehicle_id?: string;
+      status?: string;
+      created_at?: string;
+      expires_at?: string;
+    };
+  } | null;
+  error: Error | null;
+}> {
   try {
-    await apiFetch('/reservations/me', {
+    const data = await apiFetch<{
+      ok?: boolean;
+      message?: string;
+      reservation?: {
+        reservation_id?: string;
+        user_id?: string;
+        vehicle_id?: string;
+        status?: string;
+        created_at?: string;
+        expires_at?: string;
+      };
+    }>('/reservations/me', {
       method: 'POST',
       body: JSON.stringify({ vehicle_id: vehicleId, minutes_ttl: minutesTtl }),
     });
-    return { error: null };
+    return { data: data ?? null, error: null };
   } catch (e) {
-    return { error: e instanceof Error ? e : new Error(errMessage(e)) };
+    return { data: null, error: e instanceof Error ? e : new Error(errMessage(e)) };
+  }
+}
+
+export type ReservationDeleteResponse = {
+  ok: boolean;
+  message?: string;
+  reservation_id?: string;
+  deleted_count?: number;
+  released_vehicle_count?: number;
+};
+
+export async function cancelReservation(
+  userId: string,
+  reservationId: string
+): Promise<{ data: ReservationDeleteResponse | null; error: Error | null }> {
+  if (!reservationId?.trim()) {
+    return { data: null, error: new Error('Missing reservation_id for cancellation request') };
+  }
+  const normalizedReservationId = reservationId.trim();
+  const endpoint = `/reservations/me/${encodeURIComponent(normalizedReservationId)}`;
+  console.log('[Reservations] cancelReservation helper preflight', {
+    userId,
+    reservation_id: normalizedReservationId,
+    endpoint,
+  });
+  console.log('[Reservations] cancelReservation request', {
+    userId,
+    reservationId: normalizedReservationId,
+    method: 'DELETE',
+    endpoint,
+    body: null,
+  });
+  try {
+    const data = await apiFetch<ReservationDeleteResponse>(endpoint, {
+      method: 'DELETE',
+    });
+    console.log('[Reservations] cancelReservation success', {
+      userId,
+      reservationId: normalizedReservationId,
+      endpoint,
+      data,
+    });
+    return { data: data ?? null, error: null };
+  } catch (e) {
+    console.log('[Reservations] cancelReservation failed', {
+      userId,
+      reservationId: normalizedReservationId,
+      endpoint,
+      error: errMessage(e),
+    });
+    return { data: null, error: e instanceof Error ? e : new Error(errMessage(e)) };
   }
 }
 

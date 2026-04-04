@@ -15,7 +15,8 @@ type StationDetailsPanelProps = {
   vehicles: VehicleWithState[];
   loading: boolean;
   error: string | null;
-  busyVehicleId: string | null;
+  reserveBusyVehicleId: string | null;
+  startRideBusyVehicleId: string | null;
   activeVehicleId: string | null;
   userLocation: { latitude: number; longitude: number } | null;
   accentColor: string;
@@ -31,7 +32,8 @@ export const StationDetailsPanel = memo(function StationDetailsPanel({
   vehicles,
   loading,
   error,
-  busyVehicleId,
+  reserveBusyVehicleId,
+  startRideBusyVehicleId,
   activeVehicleId,
   userLocation,
   accentColor,
@@ -198,7 +200,8 @@ export const StationDetailsPanel = memo(function StationDetailsPanel({
                   stationLocation={stationLocation}
                   accentHex={accentColor}
                   isDark={isDark}
-                  busy={busyVehicleId === vehicle.vehicle_id}
+                  reserveBusy={reserveBusyVehicleId === vehicle.vehicle_id}
+                  startRideBusy={startRideBusyVehicleId === vehicle.vehicle_id}
                   onReserve={onReserve}
                   onStartRide={onStartRide}
                 />

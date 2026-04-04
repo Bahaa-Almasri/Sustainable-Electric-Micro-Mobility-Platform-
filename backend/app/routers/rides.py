@@ -6,6 +6,11 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from app.deps import get_current_user_id
 from app.db import get_pool
 from app.schemas import EndRideRequest, StartRideRequest
+from app.services.reservations import (
+    convert_active_reservation_to_ride,
+    expire_due_reservations,
+    find_active_reservation_for_vehicle,
+)
 from app.util_json import record_to_dict
 
 logger = logging.getLogger(__name__)
@@ -100,6 +105,7 @@ async def start_ride(body: StartRideRequest, user_id: UUID = Depends(get_current
     pool = get_pool()
     async with pool.acquire() as conn:
         async with conn.transaction():
+            await expire_due_reservations(conn)
             active = await conn.fetchrow(
                 """
                 SELECT ride_id FROM rides
@@ -119,7 +125,27 @@ async def start_ride(body: StartRideRequest, user_id: UUID = Depends(get_current
             )
             if not vrow:
                 raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Vehicle not found")
-            if (str(vrow["availability_status"]) or "").lower() not in ("available",):
+            vehicle_availability = (str(vrow["availability_status"]) or "").lower()
+            reservation = await find_active_reservation_for_vehicle(conn, vehicle_id=body.vehicle_id)
+
+            if vehicle_availability == "reserved":
+                if not reservation:
+                    raise HTTPException(
+                        status_code=status.HTTP_409_CONFLICT,
+                        detail="Vehicle is not available",
+                    )
+                if reservation["user_id"] != user_id:
+                    raise HTTPException(
+                        status_code=status.HTTP_409_CONFLICT,
+                        detail="Vehicle is currently reserved by another user",
+                    )
+            elif vehicle_availability == "available":
+                if reservation and reservation["user_id"] != user_id:
+                    raise HTTPException(
+                        status_code=status.HTTP_409_CONFLICT,
+                        detail="Vehicle is currently reserved by another user",
+                    )
+            else:
                 raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Vehicle is not available")
 
             await conn.execute(
@@ -132,10 +158,21 @@ async def start_ride(body: StartRideRequest, user_id: UUID = Depends(get_current
                 body.start_lat,
                 body.start_lng,
             )
-            await conn.execute(
-                "UPDATE vehicles SET availability_status = 'in_use' WHERE vehicle_id = $1",
+            updated_vehicle = await conn.execute(
+                """
+                UPDATE vehicles
+                SET availability_status = 'in_use'
+                WHERE vehicle_id = $1
+                  AND availability_status IN ('available', 'reserved')
+                """,
                 body.vehicle_id,
             )
+            if updated_vehicle != "UPDATE 1":
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="Vehicle is not available",
+                )
+            await convert_active_reservation_to_ride(conn, user_id=user_id, vehicle_id=body.vehicle_id)
             await conn.execute(
                 """
                 UPDATE vehicle_current_state

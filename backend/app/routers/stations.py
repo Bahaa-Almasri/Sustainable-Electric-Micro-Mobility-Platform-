@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 
 from app.deps import get_current_user_id
 from app.db import get_pool
+from app.services.reservations import expire_due_reservations
 from app.util_json import record_to_dict
 
 logger = logging.getLogger(__name__)
@@ -23,6 +24,7 @@ async def list_parking_available_stations(_user_id=Depends(get_current_user_id))
     """
     pool = get_pool()
     async with pool.acquire() as conn:
+        await expire_due_reservations(conn)
         try:
             rows = await conn.fetch(
                 """
@@ -82,6 +84,7 @@ async def list_active_stations(_user_id=Depends(get_current_user_id)):
     """One row per real station from `stations` (status = active). Optional available count via vehicles + rides."""
     pool = get_pool()
     async with pool.acquire() as conn:
+        await expire_due_reservations(conn)
         try:
             rows = await conn.fetch(
                 """
@@ -138,6 +141,7 @@ async def list_active_stations(_user_id=Depends(get_current_user_id)):
 async def station_vehicles(station_id: UUID, _user_id=Depends(get_current_user_id)):
     pool = get_pool()
     async with pool.acquire() as conn:
+        await expire_due_reservations(conn)
         try:
             row = await conn.fetchrow(
                 """

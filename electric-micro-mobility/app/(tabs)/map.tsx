@@ -1,7 +1,8 @@
-import { useFocusEffect } from 'expo-router';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, StyleSheet, View } from 'react-native';
+import { router, useFocusEffect, type Href } from 'expo-router';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ActivityIndicator, Alert, Modal, Pressable, StyleSheet, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 
 import {
   ActiveRideBottomCard,
@@ -22,6 +23,8 @@ import { createReservation, fetchVehiclesForStation, startRide, type VehicleWith
 import type { StationRow } from '@/types/entities';
 
 const RED_ACCENT = '#FF4B41';
+const GRADIENT_RED = '#D90429';
+const GRADIENT_BLACK = '#11181C';
 
 /**
  * Native map: OpenStreetMap-derived tiles (Leaflet in WebView). No Google / Apple map SDK.
@@ -48,11 +51,14 @@ export default function MapScreen() {
   const [stationVehicles, setStationVehicles] = useState<VehicleWithState[]>([]);
   const [stationLoading, setStationLoading] = useState(false);
   const [stationError, setStationError] = useState<string | null>(null);
-  const [busyVehicleId, setBusyVehicleId] = useState<string | null>(null);
+  const [reserveBusyVehicleId, setReserveBusyVehicleId] = useState<string | null>(null);
+  const [startRideBusyVehicleId, setStartRideBusyVehicleId] = useState<string | null>(null);
   const [scanVehicleId, setScanVehicleId] = useState<string | null>(null);
   const [scanVisible, setScanVisible] = useState(false);
   const [mapFiltersVisible, setMapFiltersVisible] = useState(false);
   const [showEmptyStations, setShowEmptyStations] = useState(false);
+  const [reserveSuccessVisible, setReserveSuccessVisible] = useState(false);
+  const [reserveSuccessMessage, setReserveSuccessMessage] = useState('Your vehicle has been reserved successfully.');
 
   const rideActive = !!activeRide;
 
@@ -81,6 +87,10 @@ export default function MapScreen() {
     setStationVehicles([]);
     setStationError(null);
   }, [rideActive]);
+
+  useEffect(() => {
+    console.log('[Map] reserve success modal visibility changed', { visible: reserveSuccessVisible });
+  }, [reserveSuccessVisible]);
 
   const loadStationVehicles = useCallback(async (station: StationRow) => {
     setStationLoading(true);
@@ -137,18 +147,31 @@ export default function MapScreen() {
 
   const onReserveList = useCallback(async (vehicleId: string) => {
     if (!user) return;
-    setBusyVehicleId(vehicleId);
-    const { error } = await createReservation(user.id, vehicleId);
-    setBusyVehicleId(null);
-    if (error) {
-      Alert.alert('Reservation failed', error.message);
-      return;
+    console.log('[Map] reserve button pressed', { vehicleId, userId: user.id });
+    setReserveBusyVehicleId(vehicleId);
+    console.log('[Map] reserve loading set', {
+      reserveLoadingVehicleId: vehicleId,
+      startRideLoadingVehicleId: startRideBusyVehicleId,
+      scanUsesReserveLoading: false,
+    });
+    try {
+      const { data, error } = await createReservation(user.id, vehicleId);
+      if (error) {
+        Alert.alert('Reservation failed', error.message);
+        return;
+      }
+      console.log('[Map] reservation API success response', { vehicleId, data });
+      const backendMessage = data?.message?.trim();
+      const message = backendMessage || 'Your vehicle has been reserved successfully.';
+      setReserveSuccessMessage(message);
+      setReserveSuccessVisible(true);
+      if (selectedStation) {
+        void loadStationVehicles(selectedStation);
+      }
+    } finally {
+      setReserveBusyVehicleId((current) => (current === vehicleId ? null : current));
     }
-    Alert.alert('Reserved', 'Vehicle is on hold. Head to Reservations tab for details.');
-    if (selectedStation) {
-      void loadStationVehicles(selectedStation);
-    }
-  }, [loadStationVehicles, selectedStation, user]);
+  }, [loadStationVehicles, selectedStation, startRideBusyVehicleId, user]);
 
   const selectedScanVehicle = useMemo(
     () => stationVehicles.find((v) => v.vehicle_id === scanVehicleId) ?? null,
@@ -167,23 +190,35 @@ export default function MapScreen() {
 
   const onStartRideAfterScanList = useCallback(async () => {
     if (!user || !scanVehicleId) return;
-    setBusyVehicleId(scanVehicleId);
-    const { error } = await startRide({
-      userId: user.id,
-      vehicleId: scanVehicleId,
-      startLat: userLocation?.latitude ?? region.latitude,
-      startLng: userLocation?.longitude ?? region.longitude,
-    });
-    setBusyVehicleId(null);
-    if (error) {
-      Alert.alert('Cannot start ride', error);
-      return;
+    setStartRideBusyVehicleId(scanVehicleId);
+    try {
+      const { error } = await startRide({
+        userId: user.id,
+        vehicleId: scanVehicleId,
+        startLat: userLocation?.latitude ?? region.latitude,
+        startLng: userLocation?.longitude ?? region.longitude,
+      });
+      if (error) {
+        Alert.alert('Cannot start ride', error);
+        return;
+      }
+      Alert.alert('Ride started', 'Have a safe trip.');
+      closeScanToRideList();
+      setSelectedStation(null);
+      await refreshAndAnimate();
+    } finally {
+      setStartRideBusyVehicleId((current) => (current === scanVehicleId ? null : current));
     }
-    Alert.alert('Ride started', 'Have a safe trip.');
-    closeScanToRideList();
-    setSelectedStation(null);
-    await refreshAndAnimate();
   }, [closeScanToRideList, region.latitude, region.longitude, refreshAndAnimate, scanVehicleId, user, userLocation?.latitude, userLocation?.longitude]);
+
+  const onReserveSuccessOk = useCallback(() => {
+    const reservationsRoute = '/(tabs)/reservations' as Href;
+    console.log('[Map] reservation success modal OK pressed');
+    console.log('[Map] navigating to reservations route', { route: reservationsRoute });
+    setReserveSuccessVisible(false);
+    setSelectedStation(null);
+    router.push(reservationsRoute);
+  }, []);
 
   return (
     <View style={styles.flex}>
@@ -251,7 +286,8 @@ export default function MapScreen() {
             vehicles={stationVehicles}
             loading={stationLoading}
             error={stationError}
-            busyVehicleId={busyVehicleId}
+            reserveBusyVehicleId={reserveBusyVehicleId}
+            startRideBusyVehicleId={startRideBusyVehicleId}
             activeVehicleId={null}
             userLocation={userLocation}
             accentColor={RED_ACCENT}
@@ -264,7 +300,7 @@ export default function MapScreen() {
             visible={scanVisible}
             accentColor={RED_ACCENT}
             isDark={isDark}
-            busy={busyVehicleId === scanVehicleId}
+            busy={startRideBusyVehicleId === scanVehicleId}
             expectedPayloads={[
               ...(selectedScanVehicle?.vehicles?.qr_code ? [selectedScanVehicle.vehicles.qr_code] : []),
               ...(selectedScanVehicle?.vehicle_id ? [selectedScanVehicle.vehicle_id] : []),
@@ -283,6 +319,31 @@ export default function MapScreen() {
             onToggleShowEmptyStations={() => setShowEmptyStations((prev) => !prev)}
             onReset={() => setShowEmptyStations(false)}
           />
+          <Modal
+            visible={reserveSuccessVisible}
+            transparent
+            animationType="fade"
+            onRequestClose={() => setReserveSuccessVisible(false)}>
+            <View style={styles.successOverlay}>
+              <View
+                style={[
+                  styles.successCard,
+                  {
+                    backgroundColor: isDark ? '#151718' : '#FFFFFF',
+                    borderColor: isDark ? 'rgba(255,255,255,0.12)' : 'rgba(17,24,28,0.08)',
+                  },
+                ]}>
+                <LinearGradient colors={[GRADIENT_RED, GRADIENT_BLACK]} style={styles.successIconWrap}>
+                  <Ionicons name="checkmark" size={28} color="#FFFFFF" />
+                </LinearGradient>
+                <ThemedText style={styles.successTitle}>Reserved successfully</ThemedText>
+                <ThemedText style={styles.successSubtitle}>{reserveSuccessMessage}</ThemedText>
+                <Pressable style={styles.successButton} onPress={onReserveSuccessOk}>
+                  <ThemedText style={styles.successButtonText}>OK</ThemedText>
+                </Pressable>
+              </View>
+            </View>
+          </Modal>
         </>
       )}
     </View>
@@ -355,5 +416,56 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 5,
+  },
+  successOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(8,12,14,0.52)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 20,
+    zIndex: 20,
+  },
+  successCard: {
+    width: '100%',
+    maxWidth: 360,
+    borderRadius: 20,
+    borderWidth: 1,
+    padding: 20,
+    alignItems: 'center',
+    gap: 12,
+  },
+  successIconWrap: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  successTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+    textAlign: 'center',
+    letterSpacing: -0.2,
+  },
+  successSubtitle: {
+    fontSize: 14,
+    lineHeight: 20,
+    textAlign: 'center',
+    opacity: 0.88,
+  },
+  successButton: {
+    marginTop: 4,
+    borderRadius: 12,
+    backgroundColor: RED_ACCENT,
+    minHeight: 44,
+    minWidth: 136,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 16,
+  },
+  successButtonText: {
+    color: '#FFFFFF',
+    fontWeight: '800',
+    fontSize: 15,
   },
 });

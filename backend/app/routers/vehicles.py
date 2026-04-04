@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 
 from app.deps import get_current_user_id
 from app.db import get_pool
+from app.services.reservations import expire_due_reservations
 from app.util_json import record_to_dict
 
 logger = logging.getLogger(__name__)
@@ -16,6 +17,7 @@ router = APIRouter(prefix="/vehicles", tags=["vehicles"])
 async def list_available(_user_id: UUID = Depends(get_current_user_id)):
     pool = get_pool()
     async with pool.acquire() as conn:
+        await expire_due_reservations(conn)
         try:
             rows = await conn.fetch(
                 """
@@ -74,6 +76,7 @@ async def list_available(_user_id: UUID = Depends(get_current_user_id)):
 async def get_vehicle(vehicle_id: UUID, _user_id: UUID = Depends(get_current_user_id)):
     pool = get_pool()
     async with pool.acquire() as conn:
+        await expire_due_reservations(conn)
         try:
             row = await conn.fetchrow(
                 """

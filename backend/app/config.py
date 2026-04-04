@@ -1,3 +1,4 @@
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -9,6 +10,10 @@ class Settings(BaseSettings):
     jwt_algorithm: str = "HS256"
     jwt_expire_days: int = 7
     cors_origins: str = "http://localhost:8081,http://localhost:19006,http://127.0.0.1:8081"
+    debug_http_log: bool = Field(
+        default=False,
+        description="Print every HTTP request (method + path) to stderr. Set env DEBUG_HTTP_LOG=true.",
+    )
 
 
 settings = Settings()

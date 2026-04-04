@@ -28,7 +28,8 @@ type StationVehicleCardProps = {
   cardWidth: number;
   userLocation: { latitude: number; longitude: number } | null;
   stationLocation: { latitude: number; longitude: number };
-  busy: boolean;
+  reserveBusy: boolean;
+  startRideBusy: boolean;
   isDark: boolean;
   accentHex: string;
   onReserve: (vehicleId: string) => void;
@@ -66,7 +67,8 @@ export const StationVehicleCard = memo(function StationVehicleCard({
   cardWidth,
   userLocation,
   stationLocation,
-  busy,
+  reserveBusy,
+  startRideBusy,
   isDark,
   accentHex,
   onReserve,
@@ -210,24 +212,28 @@ export const StationVehicleCard = memo(function StationVehicleCard({
       <View style={styles.actionsRow}>
         <Pressable
           onPress={() => onReserve(vehicle.vehicle_id)}
-          disabled={busy}
+          disabled={reserveBusy}
           style={({ pressed }) => [
             styles.secondaryBtn,
             {
               borderColor: isDark ? 'rgba(255,255,255,0.22)' : 'rgba(255,75,65,0.45)',
-              opacity: pressed && !busy ? 0.82 : 1,
+              opacity: pressed && !reserveBusy ? 0.82 : 1,
             },
           ]}>
-          <ThemedText style={[styles.secondaryBtnLabel, { color: accentHex }]}>Reserve</ThemedText>
+          {reserveBusy ? (
+            <ActivityIndicator color={accentHex} />
+          ) : (
+            <ThemedText style={[styles.secondaryBtnLabel, { color: accentHex }]}>Reserve</ThemedText>
+          )}
         </Pressable>
         <Pressable
           onPress={() => onStartRide(vehicle.vehicle_id)}
-          disabled={busy}
+          disabled={startRideBusy}
           style={({ pressed }) => [
             styles.primaryBtn,
-            { backgroundColor: accentHex, opacity: pressed && !busy ? 0.9 : 1 },
+            { backgroundColor: accentHex, opacity: pressed && !startRideBusy ? 0.9 : 1 },
           ]}>
-          {busy ? (
+          {startRideBusy ? (
             <ActivityIndicator color={onPrimary} />
           ) : (
             <>
