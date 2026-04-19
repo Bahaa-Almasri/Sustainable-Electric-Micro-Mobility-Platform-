@@ -1,21 +1,24 @@
 import { useEffect, useState } from 'react';
 import { useColorScheme as useRNColorScheme } from 'react-native';
 
+import { usePreferencesOptional } from '@/contexts/preferences-context';
+
 /**
- * To support static rendering, this value needs to be re-calculated on the client side for web
+ * Web: respects static render first, then **Preferences → Theme** once hydrated (like native).
  */
-export function useColorScheme() {
+export function useColorScheme(): 'light' | 'dark' | null {
   const [hasHydrated, setHasHydrated] = useState(false);
+  const prefs = usePreferencesOptional();
+  const system = useRNColorScheme() ?? 'light';
 
   useEffect(() => {
     setHasHydrated(true);
   }, []);
 
-  const colorScheme = useRNColorScheme();
-
-  if (hasHydrated) {
-    return colorScheme;
+  if (!hasHydrated) {
+    return 'light';
   }
 
-  return 'light';
+  if (!prefs) return system;
+  return prefs.resolvedColorScheme;
 }
