@@ -11,6 +11,7 @@ import {
 import { OsmMapView } from '@/components/osm-map-view';
 import { MapStationsFilterSheet } from '@/components/map-stations-filter-sheet';
 import type { OsmMapViewRef } from '@/components/osm-map-types';
+import { RideEndReceiptModal } from '@/components/ride-end-receipt-modal';
 import { ScanToRideModal } from '@/components/scan-to-ride-modal';
 import { StationDetailsPanel } from '@/components/station-details-panel';
 import { ThemedText } from '@/components/themed-text';
@@ -40,9 +41,12 @@ export default function MapScreenWeb() {
     userLocation,
     loading,
     activeRide,
+    pricingCatalog,
     ending,
     refresh,
     onEndRide,
+    rideEndReceipt,
+    dismissRideEndReceipt,
   } = useMapScreen();
   const mapRef = useRef<OsmMapViewRef>(null);
   const mapHasBeenFocusedRef = useRef(false);
@@ -291,6 +295,7 @@ export default function MapScreenWeb() {
             userLocation={userLocation}
             accentColor={RED_ACCENT}
             isDark={isDark}
+            pricingCatalog={pricingCatalog}
             onClose={() => setSelectedStation(null)}
             onReserve={onReserveList}
             onStartRide={openScanToRideList}
@@ -345,6 +350,12 @@ export default function MapScreenWeb() {
           </Modal>
         </>
       )}
+      <RideEndReceiptModal
+        visible={!!rideEndReceipt}
+        billing={rideEndReceipt}
+        isDark={isDark}
+        onClose={dismissRideEndReceipt}
+      />
     </View>
   );
 }

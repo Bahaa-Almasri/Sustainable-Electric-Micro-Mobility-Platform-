@@ -3,8 +3,15 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, Platform } from 'react-native';
 
 import { useAuth } from '@/contexts/auth-context';
-import { endRide, fetchActiveStations, fetchParkingAvailableStations, getActiveRideForUser } from '@/lib/mobility-api';
-import type { RideRowWithVehicle, StationRow } from '@/types/entities';
+import {
+  endRide,
+  fetchActiveStations,
+  fetchParkingAvailableStations,
+  fetchRidePricingCatalog,
+  getActiveRideForUser,
+  type EndRideBilling,
+} from '@/lib/mobility-api';
+import type { RidePricingCatalog, RideRowWithVehicle, StationRow } from '@/types/entities';
 
 export const DEFAULT_MAP_REGION = {
   latitude: 40.7128,
@@ -29,7 +36,9 @@ export function useMapScreen() {
   const [userLocation, setUserLocation] = useState<{ latitude: number; longitude: number } | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeRide, setActiveRide] = useState<RideRowWithVehicle | null>(null);
+  const [pricingCatalog, setPricingCatalog] = useState<RidePricingCatalog | null>(null);
   const [ending, setEnding] = useState(false);
+  const [rideEndReceipt, setRideEndReceipt] = useState<EndRideBilling | null>(null);
   const locationWatcherRef = useRef<Location.LocationSubscription | null>(null);
   /** Web: expo-location's watch cleanup calls LocationEventEmitter.removeSubscription, which does not exist on the web EventEmitter (crash on unmount). Poll instead. */
   const webLocationPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -58,6 +67,7 @@ export function useMapScreen() {
     if (!user) {
       setLoading(false);
       setParkingStations([]);
+      setPricingCatalog(null);
       return { region: regionRef.current, stations: [] as StationRow[] };
     }
     if (!silent) {
@@ -78,9 +88,13 @@ export function useMapScreen() {
           setUserLocation(loc);
         }
       }
-      const rideRes = await getActiveRideForUser(user.id);
+      const [rideRes, pricingRes] = await Promise.all([
+        getActiveRideForUser(user.id),
+        fetchRidePricingCatalog(),
+      ]);
       const active = rideRes.error != null ? null : (rideRes.data ?? null);
       setActiveRide(active);
+      setPricingCatalog(pricingRes.error != null ? null : pricingRes.data);
 
       if (active) {
         const pr = await fetchParkingAvailableStations();
@@ -214,15 +228,22 @@ export function useMapScreen() {
     } catch {
       /* use current region center as fallback */
     }
-    const { error } = await endRide(activeRide.ride_id, activeRide.vehicle_id, endLat, endLng);
+    const { error, data } = await endRide(activeRide.ride_id, activeRide.vehicle_id, endLat, endLng);
     setEnding(false);
     if (error) {
       Alert.alert('Could not end ride', error);
       return;
     }
+    if (data) {
+      setRideEndReceipt(data);
+    }
     setActiveRide(null);
     await refresh();
   }, [user, activeRide, region.latitude, region.longitude, refresh]);
+
+  const dismissRideEndReceipt = useCallback(() => {
+    setRideEndReceipt(null);
+  }, []);
 
   return {
     region,
@@ -232,8 +253,11 @@ export function useMapScreen() {
     userLocation,
     loading,
     activeRide,
+    pricingCatalog,
     ending,
     refresh,
     onEndRide,
+    rideEndReceipt,
+    dismissRideEndReceipt,
   };
 }

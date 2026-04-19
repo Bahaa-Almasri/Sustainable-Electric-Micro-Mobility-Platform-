@@ -7,7 +7,7 @@ import { ThemedText } from '@/components/themed-text';
 import { LoaderAccent } from '@/constants/theme';
 import { VehicleFiltersPanel } from '@/components/vehicle-filters-panel';
 import { useVehicleFilters } from '@/hooks/use-vehicle-filters';
-import type { StationRow, VehicleWithState } from '@/types/entities';
+import type { RidePricingCatalog, StationRow, VehicleWithState } from '@/types/entities';
 
 type StationDetailsPanelProps = {
   visible: boolean;
@@ -21,6 +21,7 @@ type StationDetailsPanelProps = {
   userLocation: { latitude: number; longitude: number } | null;
   accentColor: string;
   isDark: boolean;
+  pricingCatalog: RidePricingCatalog | null;
   onClose: () => void;
   onReserve: (vehicleId: string) => void;
   onStartRide: (vehicleId: string) => void;
@@ -38,6 +39,7 @@ export const StationDetailsPanel = memo(function StationDetailsPanel({
   userLocation,
   accentColor,
   isDark,
+  pricingCatalog,
   onClose,
   onReserve,
   onStartRide,
@@ -202,6 +204,7 @@ export const StationDetailsPanel = memo(function StationDetailsPanel({
                   isDark={isDark}
                   reserveBusy={reserveBusyVehicleId === vehicle.vehicle_id}
                   startRideBusy={startRideBusyVehicleId === vehicle.vehicle_id}
+                  pricingCatalog={pricingCatalog}
                   onReserve={onReserve}
                   onStartRide={onStartRide}
                 />

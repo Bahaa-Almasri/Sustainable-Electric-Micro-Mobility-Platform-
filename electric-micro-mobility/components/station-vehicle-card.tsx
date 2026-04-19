@@ -12,6 +12,7 @@ import {
 
 import { ThemedText } from '@/components/themed-text';
 import { distanceMetersBetween, formatDistanceAway } from '@/lib/geo-distance';
+import { formatUnlockRateLine } from '@/lib/mobility-api';
 import {
   estimateRangeKm,
   getVehicleCommerceSpecs,
@@ -21,7 +22,7 @@ import {
   getVehicleVisual,
   vehicleKindFromDbType,
 } from '@/lib/vehicle-image-map';
-import type { VehicleWithState } from '@/types/entities';
+import type { RidePricingCatalog, VehicleWithState } from '@/types/entities';
 
 type StationVehicleCardProps = {
   vehicle: VehicleWithState;
@@ -32,6 +33,8 @@ type StationVehicleCardProps = {
   startRideBusy: boolean;
   isDark: boolean;
   accentHex: string;
+  /** When set, replaces hardcoded hourly rate with backend unlock + per-minute line. */
+  pricingCatalog: RidePricingCatalog | null;
   onReserve: (vehicleId: string) => void;
   onStartRide: (vehicleId: string) => void;
 };
@@ -71,6 +74,7 @@ export const StationVehicleCard = memo(function StationVehicleCard({
   startRideBusy,
   isDark,
   accentHex,
+  pricingCatalog,
   onReserve,
   onStartRide,
 }: StationVehicleCardProps) {
@@ -80,6 +84,8 @@ export const StationVehicleCard = memo(function StationVehicleCard({
   const imageSelection = getVehicleImageSelection(dbType);
   const imageSource = getVehicleImageSource(dbType);
   const commerce = getVehicleCommerceSpecs(dbType);
+  const backendRate = pricingCatalog?.[kind] ?? null;
+  const unlockLine = formatUnlockRateLine(backendRate);
   const rangeKm = estimateRangeKm(dbType, vehicle.battery_level);
   const blobColors = getVehicleHeroBlobGradient(kind, isDark);
 
@@ -195,12 +201,20 @@ export const StationVehicleCard = memo(function StationVehicleCard({
 
       <View style={styles.priceRow}>
         <View style={styles.rateRow}>
-          <ThemedText style={[styles.rateLabel, { color: muted }]}>From</ThemedText>
-          <ThemedText style={[styles.rateCurrency, { color: strong }]}>$</ThemedText>
-          <ThemedText style={[styles.rateAmount, { color: strong }]}>{commerce.pricePerHour}</ThemedText>
-          <ThemedText style={[styles.rateUnit, { color: muted }]} numberOfLines={1}>
-            / hr
-          </ThemedText>
+          {unlockLine ? (
+            <ThemedText style={[styles.rateBackendLine, { color: strong }]} numberOfLines={2}>
+              {unlockLine}
+            </ThemedText>
+          ) : (
+            <>
+              <ThemedText style={[styles.rateLabel, { color: muted }]}>From</ThemedText>
+              <ThemedText style={[styles.rateCurrency, { color: strong }]}>$</ThemedText>
+              <ThemedText style={[styles.rateAmount, { color: strong }]}>{commerce.pricePerHour}</ThemedText>
+              <ThemedText style={[styles.rateUnit, { color: muted }]} numberOfLines={1}>
+                / hr
+              </ThemedText>
+            </>
+          )}
         </View>
         <View style={[styles.specChip, { backgroundColor: chipBg }]}>
           <ThemedText style={[styles.specText, { color: muted }]} numberOfLines={1}>
@@ -364,6 +378,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'baseline',
     gap: 3,
+    flexWrap: 'wrap',
+  },
+  rateBackendLine: {
+    fontSize: 14,
+    fontWeight: '800',
+    letterSpacing: -0.2,
   },
   rateLabel: {
     fontSize: 11,

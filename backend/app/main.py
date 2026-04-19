@@ -44,10 +44,22 @@ async def _debug_log_every_request(request: Request, call_next):
     return await call_next(request)
 
 
+_default_dev_origins = (
+    "http://localhost:8081,http://127.0.0.1:8081,"
+    "http://localhost:19006,http://127.0.0.1:19006"
+)
 origins = [o.strip() for o in settings.cors_origins.split(",") if o.strip()]
+if not origins:
+    # Misconfigured or empty CORS_ORIGINS would block all browser clients.
+    origins = [o.strip() for o in _default_dev_origins.split(",") if o.strip()]
+
+# Any http(s) origin on loopback + arbitrary port (covers Expo web and other dev tools).
+_localhost_origin_regex = r"https?://(localhost|127\.0\.0\.1)(:\d+)?$"
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
+    allow_origin_regex=_localhost_origin_regex if settings.cors_allow_localhost_regex else None,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

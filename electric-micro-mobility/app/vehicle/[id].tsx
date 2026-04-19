@@ -11,9 +11,23 @@ import { ThemedView } from '@/components/themed-view';
 import { LoaderAccent } from '@/constants/theme';
 import { useAuth } from '@/contexts/auth-context';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import { createReservation, fetchReservationsForUser, fetchVehicleDetail, startRide, type VehicleWithState } from '@/lib/mobility-api';
-import { estimateRangeKm, getVehicleHeroBlobGradient, getVehicleImageSelection, getVehicleVisual } from '@/lib/vehicle-image-map';
-import type { ReservationRow } from '@/types/entities';
+import {
+  createReservation,
+  fetchReservationsForUser,
+  fetchRidePricingCatalog,
+  fetchVehicleDetail,
+  formatUnlockRateLine,
+  startRide,
+  type VehicleWithState,
+} from '@/lib/mobility-api';
+import {
+  estimateRangeKm,
+  getVehicleHeroBlobGradient,
+  getVehicleImageSelection,
+  getVehicleVisual,
+  vehicleKindFromDbType,
+} from '@/lib/vehicle-image-map';
+import type { ReservationRow, RidePricingCatalog } from '@/types/entities';
 
 const RED_ACCENT = '#FF4B41';
 const GRADIENT_RED = '#D90429';
@@ -66,18 +80,21 @@ export default function VehicleDetailScreen() {
   const [reserveLoadingVehicleId, setReserveLoadingVehicleId] = useState<string | null>(null);
   const [scanVisible, setScanVisible] = useState(false);
   const [myReservation, setMyReservation] = useState<ReservationRow | null>(null);
+  const [pricingCatalog, setPricingCatalog] = useState<RidePricingCatalog | null>(null);
   const [reservationSuccessVisible, setReservationSuccessVisible] = useState(false);
   const [reservationSuccessMessage, setReservationSuccessMessage] = useState('Your vehicle has been reserved successfully.');
 
   const load = useCallback(async () => {
     if (!id || typeof id !== 'string') return;
     setLoading(true);
-    const [vehicleRes, reservationRes] = await Promise.all([
+    const [vehicleRes, reservationRes, pricingRes] = await Promise.all([
       fetchVehicleDetail(id),
       user ? fetchReservationsForUser(user.id) : Promise.resolve({ data: null, error: null }),
+      fetchRidePricingCatalog(),
     ]);
     setError(vehicleRes.error);
     setVehicle(vehicleRes.data);
+    setPricingCatalog(pricingRes.error != null ? null : pricingRes.data);
 
     if (reservationRes.data) {
       const mine = reservationRes.data
@@ -105,6 +122,8 @@ export default function VehicleDetailScreen() {
   const availability = normalizeAvailability(v?.status);
   const reservedByCurrentUser = availability === 'reserved' && !!myReservation;
   const rangeKm = estimateRangeKm(v?.type ?? null, vehicle?.battery_level ?? null);
+  const unlockLine =
+    formatUnlockRateLine(pricingCatalog?.[vehicleKindFromDbType(v?.type ?? null)] ?? null) ?? null;
   const blobGradient = getVehicleHeroBlobGradient(visual.kind, isDark);
   const isReserveLoading = !!id && reserveLoadingVehicleId === id;
   const actionBusy = startRideBusy || isReserveLoading;
@@ -310,6 +329,10 @@ export default function VehicleDetailScreen() {
             <View style={styles.infoCell}>
               <ThemedText style={styles.infoLabel}>Estimated range</ThemedText>
               <ThemedText style={styles.infoValue}>{rangeKm == null ? 'N/A' : `${rangeKm} km`}</ThemedText>
+            </View>
+            <View style={styles.infoCell}>
+              <ThemedText style={styles.infoLabel}>Ride rate</ThemedText>
+              <ThemedText style={styles.infoValue}>{unlockLine ?? 'Not available'}</ThemedText>
             </View>
             <View style={styles.infoCell}>
               <ThemedText style={styles.infoLabel}>Last update</ThemedText>

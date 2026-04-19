@@ -31,6 +31,12 @@ export type StationRow = {
   available_parking_spots?: number | null;
 };
 
+/** Per-minute pricing snapshot from backend (DB with config fallback). */
+export type RidePricingSnapshot = {
+  initial_fee: number;
+  price_per_minute: number;
+};
+
 export type RideRow = {
   ride_id: string;
   user_id: string;
@@ -44,11 +50,18 @@ export type RideRow = {
   distance_meters: number | null;
   status: string | null;
   cost: number | null;
+  /** Set when billing ran (completed trips) or echoed from ride row when present. */
+  duration_minutes?: number | null;
+  /** Nested breakdown when returned by list/active endpoints. */
+  pricing?: RidePricingSnapshot | null;
 };
 
 export type RideRowWithVehicle = RideRow & {
   vehicles: Pick<VehicleRow, 'model' | 'type' | 'qr_code'> | null;
 };
+
+/** GET /rides/pricing/catalog → `rates` keyed by normalized vehicle type (scooter | bike | car). */
+export type RidePricingCatalog = Record<string, RidePricingSnapshot & { source?: string }>;
 
 export type PackageRow = {
   package_id: string;

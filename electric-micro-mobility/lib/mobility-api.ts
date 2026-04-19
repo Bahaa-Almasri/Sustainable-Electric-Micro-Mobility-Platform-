@@ -5,6 +5,8 @@ import type {
   PaymentRow,
   PurchaseRow,
   ReservationRow,
+  RidePricingCatalog,
+  RidePricingSnapshot,
   RideRow,
   RideRowWithVehicle,
   StationRow,
@@ -286,6 +288,24 @@ export async function purchaseRidePackage(_userId: string, pkg: PackageRow): Pro
   }
 }
 
+/** Display line for station / active ride (matches backend amounts). */
+export function formatUnlockRateLine(rate: RidePricingSnapshot | null | undefined): string | null {
+  if (!rate || rate.initial_fee == null || rate.price_per_minute == null) return null;
+  return `$${Number(rate.initial_fee).toFixed(2)} unlock + $${Number(rate.price_per_minute).toFixed(2)}/min`;
+}
+
+export async function fetchRidePricingCatalog(): Promise<{
+  data: RidePricingCatalog | null;
+  error: string | null;
+}> {
+  try {
+    const res = await apiFetch<{ rates: RidePricingCatalog }>('/rides/pricing/catalog');
+    return { data: res.rates ?? null, error: null };
+  } catch (e) {
+    return { data: null, error: errMessage(e) };
+  }
+}
+
 export async function getActiveRideForUser(_userId: string): Promise<{
   data: RideRowWithVehicle | null;
   error: Error | null;
@@ -298,19 +318,25 @@ export async function getActiveRideForUser(_userId: string): Promise<{
   }
 }
 
+export type StartRideResult = {
+  ok: boolean;
+  ride_id?: string;
+  pricing?: RidePricingSnapshot;
+};
+
 export async function startRide(params: {
   userId: string;
   vehicleId: string;
   startLat: number;
   startLng: number;
-}): Promise<{ error: string | null }> {
+}): Promise<{ error: string | null; data?: StartRideResult }> {
   try {
     const active = await getActiveRideForUser(params.userId);
     if (active.error) return { error: active.error.message };
     if (active.data) {
       return { error: 'You already have an active ride. End it before starting another.' };
     }
-    await apiFetch('/rides/start', {
+    const data = await apiFetch<StartRideResult>('/rides/start', {
       method: 'POST',
       body: JSON.stringify({
         vehicle_id: params.vehicleId,
@@ -318,20 +344,26 @@ export async function startRide(params: {
         start_lng: params.startLng,
       }),
     });
-    return { error: null };
+    return { error: null, data };
   } catch (e) {
     return { error: errMessage(e) };
   }
 }
+
+export type EndRideBilling = {
+  duration_minutes: number;
+  pricing: RidePricingSnapshot;
+  total_price: number;
+};
 
 export async function endRide(
   rideId: string,
   vehicleId: string,
   endLat: number,
   endLng: number
-): Promise<{ error: string | null }> {
+): Promise<{ error: string | null; data?: EndRideBilling }> {
   try {
-    await apiFetch('/rides/end', {
+    const res = await apiFetch<{ ok: boolean } & EndRideBilling>('/rides/end', {
       method: 'POST',
       body: JSON.stringify({
         ride_id: rideId,
@@ -339,7 +371,11 @@ export async function endRide(
         end_lng: endLng,
       }),
     });
-    return { error: null };
+    const { duration_minutes, pricing, total_price } = res;
+    return {
+      error: null,
+      data: { duration_minutes, pricing, total_price },
+    };
   } catch (e) {
     return { error: errMessage(e) };
   }

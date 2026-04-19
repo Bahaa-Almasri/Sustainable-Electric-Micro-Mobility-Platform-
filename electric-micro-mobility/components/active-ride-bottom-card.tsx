@@ -12,6 +12,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
+import { formatUnlockRateLine } from '@/lib/mobility-api';
 import {
   estimateRangeKm,
   getVehicleImageSource,
@@ -121,6 +122,7 @@ export const ActiveRideBottomCard = memo(function ActiveRideBottomCard({
     battery == null || Number.isNaN(battery) ? null : Math.round(battery);
   const rangeKm = estimateRangeKm(vehicleType, battery ?? null);
   const timerLabel = formatRideDuration(activeRide.start_time);
+  const rateLine = formatUnlockRateLine(activeRide.pricing ?? null);
   void tick;
 
   const cardBg = isDark ? CARD_BG_DARK : CARD_BG_LIGHT;
@@ -161,6 +163,7 @@ export const ActiveRideBottomCard = memo(function ActiveRideBottomCard({
                 {visual.title}
               </ThemedText>
               <ThemedText style={[styles.subHint, { color: muted }]} numberOfLines={1}>
+                {rateLine ? `${rateLine} · ` : null}
                 Ride active · ID {activeRide.vehicle_id.slice(0, 8)}…
               </ThemedText>
             </View>
