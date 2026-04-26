@@ -19,6 +19,7 @@ import { accountSurfaces, ACCENT, cardShadow } from '@/components/account/accoun
 import { PreferencePickerModal } from '@/components/account/preference-picker-modal';
 import { QuickActionsRow } from '@/components/account/quick-actions';
 import { RidePreviewCard } from '@/components/account/ride-preview-card';
+import { SignOutConfirmModal } from '@/components/account/sign-out-confirm-modal';
 import { SettingsRow } from '@/components/account/settings-row';
 import { SettingsSection } from '@/components/account/settings-section';
 import { StatsSummary, type StatItem } from '@/components/account/stats-summary';
@@ -59,6 +60,8 @@ export default function AccountScreen() {
   const { preferences, updatePreferences } = usePreferences();
   const [searchQuery, setSearchQuery] = useState('');
   const [preferencePicker, setPreferencePicker] = useState<PreferencePickerKind>(null);
+  const [signOutConfirmOpen, setSignOutConfirmOpen] = useState(false);
+  const [signOutBusy, setSignOutBusy] = useState(false);
 
   const [notifications, setNotifications] = useState({
     push: true,
@@ -259,8 +262,17 @@ export default function AccountScreen() {
   const appVersion = Constants.expoConfig?.version ?? '1.0.0';
 
   const onSignOut = useCallback(async () => {
-    await signOut();
-    router.replace('/sign-in' as Href);
+    setSignOutBusy(true);
+    try {
+      await signOut();
+      router.replace('/sign-in' as Href);
+    } catch (e) {
+      setSignOutBusy(false);
+      Alert.alert(
+        'Sign out failed',
+        e instanceof Error ? e.message : 'Could not end your session. Please try again.'
+      );
+    }
   }, [signOut]);
 
   const activePreferencePicker = useMemo(() => {
@@ -645,12 +657,7 @@ export default function AccountScreen() {
         <View style={styles.footerSpacer} />
 
         <Pressable
-          onPress={() => {
-            Alert.alert('Sign out', 'End your session on this device?', [
-              { text: 'Cancel', style: 'cancel' },
-              { text: 'Sign out', style: 'destructive', onPress: () => void onSignOut() },
-            ]);
-          }}
+          onPress={() => setSignOutConfirmOpen(true)}
           style={({ pressed }) => [
             styles.signOut,
             { borderColor: `${destructive}66` },
@@ -688,6 +695,22 @@ export default function AccountScreen() {
           }}
         />
       ) : null}
+
+      <SignOutConfirmModal
+        visible={signOutConfirmOpen}
+        busy={signOutBusy}
+        onClose={() => {
+          if (!signOutBusy) setSignOutConfirmOpen(false);
+        }}
+        onConfirm={() => void onSignOut()}
+        colors={{
+          text: onSurface,
+          muted,
+          cardBg,
+          divider,
+          destructive,
+        }}
+      />
     </ThemedView>
   );
 }

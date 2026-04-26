@@ -1,5 +1,5 @@
 import { useFocusEffect } from 'expo-router';
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import {
   fetchReservationsForUser,
@@ -22,7 +22,15 @@ export function useAccountScreenData(userId: string | undefined) {
   const load = useCallback(
     async (opts?: { silent?: boolean }) => {
       const silent = opts?.silent ?? false;
-      if (!userId) return;
+      if (!userId) {
+        setProfile(null);
+        setRides([]);
+        setReservations([]);
+        setPurchases([]);
+        setWalletError(null);
+        setLoading(false);
+        return;
+      }
       if (!silent) setLoading(true);
       try {
         const [profRes, ridesRes, resvRes, walletRes] = await Promise.all([
@@ -53,6 +61,17 @@ export function useAccountScreenData(userId: string | undefined) {
     },
     [userId]
   );
+
+  useEffect(() => {
+    if (!userId) {
+      setProfile(null);
+      setRides([]);
+      setReservations([]);
+      setPurchases([]);
+      setWalletError(null);
+      setLoading(false);
+    }
+  }, [userId]);
 
   useFocusEffect(
     useCallback(() => {
