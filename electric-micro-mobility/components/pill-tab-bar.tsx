@@ -2,13 +2,30 @@ import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import React, { memo } from 'react';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { Colors } from '@/constants/theme';
+import { useColorScheme } from '@/hooks/use-color-scheme';
+
 const ACTIVE_PILL = '#FF4B41';
-const INACTIVE = '#9E9E9E';
-const BAR_BG = '#FFFFFF';
 
 function PillTabBarInner({ state, descriptors, navigation, insets }: BottomTabBarProps) {
+  const colorScheme = useColorScheme() ?? 'light';
+  const theme = Colors[colorScheme];
+  const barBg = theme.background;
+  const inactive = theme.tabIconDefault;
+  const borderTop = colorScheme === 'dark' ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)';
+
   return (
-    <View style={[styles.bar, { paddingBottom: Math.max(insets.bottom, 10), paddingTop: 8 }]}>
+    <View
+      style={[
+        styles.bar,
+        {
+          backgroundColor: barBg,
+          borderTopColor: borderTop,
+          paddingBottom: Math.max(insets.bottom, 10),
+          paddingTop: 8,
+        },
+        colorScheme === 'dark' && styles.barDark,
+      ]}>
       {state.routes.map((route, index) => {
         const { options } = descriptors[route.key];
         const label = (options.title ?? route.name) as string;
@@ -32,7 +49,7 @@ function PillTabBarInner({ state, descriptors, navigation, insets }: BottomTabBa
           });
         };
 
-        const color = isFocused ? '#FFFFFF' : INACTIVE;
+        const color = isFocused ? '#FFFFFF' : inactive;
         const size = 22;
         const iconEl =
           options.tabBarIcon?.({
@@ -67,7 +84,7 @@ function PillTabBarInner({ state, descriptors, navigation, insets }: BottomTabBa
             ) : (
               <View style={styles.tabInner}>
                 {iconEl}
-                <Text style={styles.labelInactive} numberOfLines={1}>
+                <Text style={[styles.labelInactive, { color: inactive }]} numberOfLines={1}>
                   {label}
                 </Text>
               </View>
@@ -87,7 +104,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: BAR_BG,
     paddingHorizontal: 6,
     ...Platform.select({
       ios: {
@@ -100,7 +116,15 @@ const styles = StyleSheet.create({
       default: {},
     }),
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: 'rgba(0,0,0,0.05)',
+  },
+  barDark: {
+    ...Platform.select({
+      ios: {
+        shadowOpacity: 0.25,
+      },
+      android: { elevation: 12 },
+      default: {},
+    }),
   },
   tabPressable: {
     flex: 1,
@@ -140,7 +164,6 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
   },
   labelInactive: {
-    color: INACTIVE,
     fontSize: 10,
     fontWeight: '600',
     letterSpacing: 0.4,
