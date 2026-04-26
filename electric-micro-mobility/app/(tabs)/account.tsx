@@ -31,30 +31,12 @@ import { useAccountScreenData } from '@/hooks/use-account-screen-data';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { usePreferences } from '@/hooks/use-preferences';
 import { matchesAccountSearch } from '@/lib/account-search';
-import {
-  LANGUAGE_LABELS,
-  MAP_BEHAVIOR_LABELS,
-  THEME_LABELS,
-  UNITS_LABELS,
-  VEHICLE_LABELS,
-} from '@/lib/preferences/labels';
-import {
-  LANGUAGE_PICKER_OPTIONS,
-  MAP_BEHAVIOR_PICKER_OPTIONS,
-  THEME_PICKER_OPTIONS,
-  UNITS_PICKER_OPTIONS,
-  VEHICLE_PICKER_OPTIONS,
-} from '@/lib/preferences/picker-options';
-import type {
-  AppLanguage,
-  DefaultVehiclePreference,
-  MapBehaviorPreference,
-  ThemeMode,
-  UnitsPreference,
-} from '@/types/app-preferences';
+import { LANGUAGE_LABELS, THEME_LABELS } from '@/lib/preferences/labels';
+import { LANGUAGE_PICKER_OPTIONS, THEME_PICKER_OPTIONS } from '@/lib/preferences/picker-options';
+import type { AppLanguage, ThemeMode } from '@/types/app-preferences';
 import type { RideRow } from '@/types/entities';
 
-type PreferencePickerKind = 'language' | 'theme' | 'units' | 'map' | 'vehicle' | null;
+type PreferencePickerKind = 'language' | 'theme' | null;
 
 function rideDurationMinutes(r: RideRow): number | null {
   if (!r.start_time || !r.end_time) return null;
@@ -147,15 +129,10 @@ export default function AccountScreen() {
   );
 
   const distanceLabel = useMemo(() => {
-    if (preferences.units === 'metric') {
-      const km = totalDistanceM / 1000;
-      if (km < 0.1 && totalDistanceM > 0) return `${Math.round(totalDistanceM)} m`;
-      return `${km < 10 ? km.toFixed(1) : Math.round(km)} km`;
-    }
-    const mi = totalDistanceM / 1609.34;
-    if (mi < 0.1 && totalDistanceM > 0) return `${Math.round(totalDistanceM * 1.09361)} yd`;
-    return `${mi < 10 ? mi.toFixed(1) : Math.round(mi)} mi`;
-  }, [totalDistanceM, preferences.units]);
+    const km = totalDistanceM / 1000;
+    if (km < 0.1 && totalDistanceM > 0) return `${Math.round(totalDistanceM)} m`;
+    return `${km < 10 ? km.toFixed(1) : Math.round(km)} km`;
+  }, [totalDistanceM]);
 
   const co2Kg = useMemo(() => {
     const km = totalDistanceM / 1000;
@@ -252,10 +229,10 @@ export default function AccountScreen() {
   const qProfile = ['profile', 'account', 'email', 'phone', 'password', 'security', 'verified', displayName, emailLine];
   const qQuick = ['quick', 'action', 'edit', 'payment', 'notifications', 'help', 'wallet'];
   const qStats = ['usage', 'rides', 'minutes', 'wallet', 'distance', 'reservation', 'impact', 'environment'];
-  const qPrefs = ['preference', 'language', 'theme', 'units', 'map', 'vehicle', 'accessibility', 'sound', 'vibration'];
+  const qPrefs = ['preference', 'language', 'theme', 'accessibility', 'sound', 'vibration'];
   const qNotif = ['notification', 'push', 'reminder', 'expiry', 'promotion', 'email', 'sms', 'announcement'];
   const qPay = ['payment', 'wallet', 'card', 'billing', 'transaction', 'promo', 'credit'];
-  const qSafety = ['safety', 'emergency', 'report', 'history', 'parking', 'license', 'ride'];
+  const qSafety = ['safety', 'emergency', 'report', 'history', 'license', 'ride'];
   const qApp = ['privacy', 'terms', 'help', 'faq', 'support', 'about', 'version', 'logout', 'delete'];
 
   const showProfile = matchesAccountSearch(searchQuery, qProfile);
@@ -303,27 +280,6 @@ export default function AccountScreen() {
           options: THEME_PICKER_OPTIONS.map((o) => ({ value: o.value, label: o.label })),
           selectedValue: p.themeMode,
           apply: (v: string) => updatePreferences({ themeMode: v as ThemeMode }),
-        };
-      case 'units':
-        return {
-          title: 'Units',
-          options: UNITS_PICKER_OPTIONS.map((o) => ({ value: o.value, label: o.label })),
-          selectedValue: p.units,
-          apply: (v: string) => updatePreferences({ units: v as UnitsPreference }),
-        };
-      case 'map':
-        return {
-          title: 'Default map behavior',
-          options: MAP_BEHAVIOR_PICKER_OPTIONS.map((o) => ({ value: o.value, label: o.label })),
-          selectedValue: p.mapBehavior,
-          apply: (v: string) => updatePreferences({ mapBehavior: v as MapBehaviorPreference }),
-        };
-      case 'vehicle':
-        return {
-          title: 'Default vehicle',
-          options: VEHICLE_PICKER_OPTIONS.map((o) => ({ value: o.value, label: o.label })),
-          selectedValue: p.defaultVehicle,
-          apply: (v: string) => updatePreferences({ defaultVehicle: v as DefaultVehiclePreference }),
         };
       default:
         return null;
@@ -487,27 +443,6 @@ export default function AccountScreen() {
             colors={rowColors}
             onPress={() => setPreferencePicker('theme')}
           />
-          <SettingsRow
-            title="Units"
-            subtitle={UNITS_LABELS[preferences.units]}
-            icon="analytics-outline"
-            colors={rowColors}
-            onPress={() => setPreferencePicker('units')}
-          />
-          <SettingsRow
-            title="Default map behavior"
-            subtitle={MAP_BEHAVIOR_LABELS[preferences.mapBehavior]}
-            icon="map-outline"
-            colors={rowColors}
-            onPress={() => setPreferencePicker('map')}
-          />
-          <SettingsRow
-            title="Default vehicle"
-            subtitle={VEHICLE_LABELS[preferences.defaultVehicle]}
-            icon="bicycle-outline"
-            colors={rowColors}
-            onPress={() => setPreferencePicker('vehicle')}
-          />
           <ToggleRow
             title="Accessibility"
             subtitle="Larger touch targets & contrast"
@@ -660,20 +595,6 @@ export default function AccountScreen() {
             icon="git-commit-outline"
             colors={rowColors}
             onPress={comingSoon('Ride history', 'Export and filters will live here.')}
-          />
-          <SettingsRow
-            title="Auto-end reminders"
-            subtitle="Nudge before idle billing"
-            icon="timer-outline"
-            colors={rowColors}
-            onPress={comingSoon('Auto-end reminders')}
-          />
-          <SettingsRow
-            title="Parking & stations"
-            subtitle="Hubs, racks, and no-park zones"
-            icon="location-outline"
-            colors={rowColors}
-            onPress={comingSoon('Parking rules')}
             isLast
           />
         </SettingsSection>

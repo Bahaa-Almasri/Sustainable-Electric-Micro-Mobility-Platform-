@@ -15,22 +15,11 @@ function parseStored(raw: unknown): Partial<AppPreferences> {
   const o = raw;
   const out: Partial<AppPreferences> = {};
   if (typeof o.version === 'number') out.version = o.version;
-  if (o.language === 'en-US' || o.language === 'en-GB' || o.language === 'ar') {
+  if (o.language === 'en-US' || o.language === 'ar') {
     out.language = o.language;
   }
   if (o.themeMode === 'light' || o.themeMode === 'dark' || o.themeMode === 'system') {
     out.themeMode = o.themeMode;
-  }
-  if (o.units === 'metric' || o.units === 'imperial') out.units = o.units;
-  if (
-    o.mapBehavior === 'nearest_available' ||
-    o.mapBehavior === 'show_all_nearby' ||
-    o.mapBehavior === 'stations_first'
-  ) {
-    out.mapBehavior = o.mapBehavior;
-  }
-  if (o.defaultVehicle === 'e_scooter' || o.defaultVehicle === 'e_bike' || o.defaultVehicle === 'car') {
-    out.defaultVehicle = o.defaultVehicle;
   }
   if (typeof o.accessibilityEnabled === 'boolean') out.accessibilityEnabled = o.accessibilityEnabled;
   if (typeof o.soundsEnabled === 'boolean') out.soundsEnabled = o.soundsEnabled;
