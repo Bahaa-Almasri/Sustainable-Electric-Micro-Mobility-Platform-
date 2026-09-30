@@ -1,28 +1,27 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { Redirect, Tabs, type Href } from 'expo-router';
 import React, { useCallback } from 'react';
-import { ActivityIndicator, StyleSheet } from 'react-native';
+import { ActivityIndicator, StyleSheet, type ColorValue } from 'react-native';
 
-import { PillTabBar } from '@/components/pill-tab-bar';
+import { PillTabBar, type BottomTabBarProps } from '@/components/pill-tab-bar';
 import { ThemedView } from '@/components/themed-view';
 import { Colors, LoaderAccent } from '@/constants/theme';
 import { useAuth } from '@/contexts/auth-context';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
-function WalletTabIcon({ color, size }: { color: string; size: number }) {
+function WalletTabIcon({ color, size }: { color: ColorValue; size: number }) {
   return <MaterialIcons name="account-balance-wallet" size={size} color={color} />;
 }
-function ReservationsTabIcon({ color, size }: { color: string; size: number }) {
+function ReservationsTabIcon({ color, size }: { color: ColorValue; size: number }) {
   return <MaterialIcons name="event-note" size={size} color={color} />;
 }
-function MapTabIcon({ color, size }: { color: string; size: number }) {
+function MapTabIcon({ color, size }: { color: ColorValue; size: number }) {
   return <MaterialIcons name="map" size={size + 4} color={color} />;
 }
-function SupportTabIcon({ color, size }: { color: string; size: number }) {
+function SupportTabIcon({ color, size }: { color: ColorValue; size: number }) {
   return <MaterialIcons name="support-agent" size={size} color={color} />;
 }
-function AccountTabIcon({ color, size }: { color: string; size: number }) {
+function AccountTabIcon({ color, size }: { color: ColorValue; size: number }) {
   return <MaterialIcons name="person" size={size} color={color} />;
 }
 

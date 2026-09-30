@@ -51,7 +51,7 @@ export const OsmMapView = forwardRef<OsmMapViewRef, OsmMapViewProps>(function Os
   return (
     <WebView
       ref={webRef}
-      style={[StyleSheet.absoluteFillObject, style]}
+      style={[StyleSheet.absoluteFill, style]}
       originWhitelist={['*']}
       source={{ html: OSM_LEAFLET_HTML, baseUrl: 'https://localhost' }}
       javaScriptEnabled

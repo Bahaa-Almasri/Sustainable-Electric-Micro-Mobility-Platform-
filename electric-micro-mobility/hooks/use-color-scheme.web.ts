@@ -9,7 +9,7 @@ import { usePreferencesOptional } from '@/contexts/preferences-context';
 export function useColorScheme(): 'light' | 'dark' | null {
   const [hasHydrated, setHasHydrated] = useState(false);
   const prefs = usePreferencesOptional();
-  const system = useRNColorScheme() ?? 'light';
+  const system = useRNColorScheme() === 'dark' ? 'dark' : 'light';
 
   useEffect(() => {
     setHasHydrated(true);

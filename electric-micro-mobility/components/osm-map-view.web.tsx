@@ -65,7 +65,7 @@ export const OsmMapView = forwardRef<OsmMapViewRef, OsmMapViewProps>(function Os
   }, [onStationPress]);
 
   return (
-    <View style={[StyleSheet.absoluteFillObject, style]}>
+    <View style={[StyleSheet.absoluteFill, style]}>
       <iframe
         ref={iframeRef}
         srcDoc={OSM_LEAFLET_HTML}

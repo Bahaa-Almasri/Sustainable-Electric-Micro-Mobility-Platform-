@@ -362,9 +362,9 @@ export default function MapScreenWeb() {
 
 const styles = StyleSheet.create({
   flex: { flex: 1, minHeight: 480 },
-  map: { ...StyleSheet.absoluteFillObject },
+  map: { ...StyleSheet.absoluteFill },
   overlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 2,

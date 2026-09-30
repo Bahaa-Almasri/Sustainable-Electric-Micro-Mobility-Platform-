@@ -1,9 +1,12 @@
-import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
-import React, { memo } from 'react';
+import type { Tabs } from 'expo-router';
+import React, { memo, type ComponentProps } from 'react';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+
+/** expo-router bundles its own React Navigation, so take the props type from its `Tabs`. */
+export type BottomTabBarProps = Parameters<NonNullable<ComponentProps<typeof Tabs>['tabBar']>>[0];
 
 const ACTIVE_PILL = '#FF4B41';
 

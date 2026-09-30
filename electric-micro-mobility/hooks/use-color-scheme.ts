@@ -9,7 +9,7 @@ import { usePreferencesOptional } from '@/contexts/preferences-context';
 export function useColorScheme(): 'light' | 'dark' | null {
   const prefs = usePreferencesOptional();
   const system = useRNColorScheme();
-  if (!prefs) return system ?? 'light';
+  if (!prefs) return system === 'dark' ? 'dark' : 'light';
   return prefs.resolvedColorScheme;
 }
 
