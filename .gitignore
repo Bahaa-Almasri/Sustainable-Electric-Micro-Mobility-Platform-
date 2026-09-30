@@ -3,3 +3,6 @@ electric-micro-mobility/node_modules/
 electric-micro-mobility/.expo/
 electric-micro-mobility/dist/
 electric-micro-mobility/.env
+backend/.venv/
+backend/.env
+__pycache__/
