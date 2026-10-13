@@ -14,8 +14,7 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 import {
   createReservation,
   fetchReservationsForUser,
-  fetchRidePricingCatalog,
-  fetchVehicleDetail,
+  fetchVehicleDetails,
   formatUnlockRateLine,
   startRide,
   type VehicleWithState,
@@ -87,18 +86,14 @@ export default function VehicleDetailScreen() {
   const load = useCallback(async () => {
     if (!id || typeof id !== 'string') return;
     setLoading(true);
-    const [vehicleRes, reservationRes, pricingRes] = await Promise.all([
-      fetchVehicleDetail(id),
-      user ? fetchReservationsForUser(user.id) : Promise.resolve({ data: null, error: null }),
-      fetchRidePricingCatalog(),
-    ]);
-    setError(vehicleRes.error);
-    setVehicle(vehicleRes.data);
-    setPricingCatalog(pricingRes.error != null ? null : pricingRes.data);
+    const { data: details, error: detailsError } = await fetchVehicleDetails(id);
+    setError(detailsError);
+    setVehicle(details?.vehicle ?? null);
+    setPricingCatalog(details?.pricing ?? null);
 
-    if (reservationRes.data) {
-      const mine = reservationRes.data
-        .filter((row) => row.vehicle_id === id && isReservationStillActive(row))
+    if (details?.myReservations) {
+      const mine = details.myReservations
+        .filter((row) => isReservationStillActive(row))
         .sort((a, b) => {
           const aMs = a.created_at ? new Date(a.created_at).getTime() : 0;
           const bMs = b.created_at ? new Date(b.created_at).getTime() : 0;
@@ -110,7 +105,7 @@ export default function VehicleDetailScreen() {
     }
 
     setLoading(false);
-  }, [id, user]);
+  }, [id]);
 
   useEffect(() => {
     void load();

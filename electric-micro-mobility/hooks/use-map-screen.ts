@@ -5,10 +5,7 @@ import { Alert, Platform } from 'react-native';
 import { useAuth } from '@/contexts/auth-context';
 import {
   endRide,
-  fetchActiveStations,
-  fetchParkingAvailableStations,
-  fetchRidePricingCatalog,
-  getActiveRideForUser,
+  fetchMapOverview,
   type EndRideBilling,
 } from '@/lib/mobility-api';
 import type { RidePricingCatalog, RideRowWithVehicle, StationRow } from '@/types/entities';
@@ -88,17 +85,14 @@ export function useMapScreen() {
           setUserLocation(loc);
         }
       }
-      const [rideRes, pricingRes] = await Promise.all([
-        getActiveRideForUser(user.id),
-        fetchRidePricingCatalog(),
-      ]);
-      const active = rideRes.error != null ? null : (rideRes.data ?? null);
+      const overviewRes = await fetchMapOverview();
+      const overview = overviewRes.data;
+      const active = overview?.activeRide ?? null;
       setActiveRide(active);
-      setPricingCatalog(pricingRes.error != null ? null : pricingRes.data);
+      setPricingCatalog(overview?.pricing ?? null);
 
       if (active) {
-        const pr = await fetchParkingAvailableStations();
-        const rawP = pr.data ?? [];
+        const rawP = overview?.parkingStations ?? [];
         const seenP = new Set<string>();
         const parkingList = rawP.filter((s) => {
           if (!s.station_id || seenP.has(s.station_id)) return false;
@@ -109,15 +103,14 @@ export function useMapScreen() {
         setStations([]);
         if (__DEV__) {
           console.log(
-            `[map] active ride → GET /stations/parking-available → ${rawP.length} rows, ${parkingList.length} unique`
+            `[map] active ride → GET /map/overview parking_stations → ${rawP.length} rows, ${parkingList.length} unique`
           );
         }
         return { region: nextRegion, stations: parkingList };
       }
 
       setParkingStations([]);
-      const stationRes = await fetchActiveStations();
-      const raw = stationRes.data ?? [];
+      const raw = overview?.stations ?? [];
       const seen = new Set<string>();
       const list = raw.filter((s) => {
         if (!s.station_id || seen.has(s.station_id)) return false;
@@ -127,7 +120,7 @@ export function useMapScreen() {
       if (__DEV__) {
         const markerPayload = list.filter((s) => s.lat != null && s.lng != null);
         console.log(
-          `[map] GET /stations/active → ${raw.length} rows, ${list.length} unique station_id, ${markerPayload.length} with lat/lng`
+          `[map] GET /map/overview stations → ${raw.length} rows, ${list.length} unique station_id, ${markerPayload.length} with lat/lng`
         );
       }
       setStations(list);

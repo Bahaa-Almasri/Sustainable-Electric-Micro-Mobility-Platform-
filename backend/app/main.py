@@ -8,7 +8,7 @@ from fastapi.responses import JSONResponse
 
 from app.config import settings
 from app.db import close_pool, get_pool, init_pool
-from app.routers import auth, reservations, rides, stations, support, users, vehicles, wallet
+from app.routers import aggregates, auth, reservations, rides, stations, support, users, vehicles, wallet
 
 
 def _configure_app_logging() -> None:
@@ -83,6 +83,7 @@ app.include_router(rides.router)
 app.include_router(wallet.router)
 app.include_router(reservations.router)
 app.include_router(support.router)
+app.include_router(aggregates.router)
 
 
 @app.get("/health")

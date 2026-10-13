@@ -1,12 +1,7 @@
 import { useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import {
-  fetchReservationsForUser,
-  fetchRidesForUser,
-  fetchUserMe,
-  fetchWalletOverview,
-} from '@/lib/mobility-api';
+import { fetchAccountSummary } from '@/lib/mobility-api';
 import type { PurchaseRow, ReservationRow, RideRow, UserRow } from '@/types/entities';
 
 export function useAccountScreenData(userId: string | undefined) {
@@ -33,27 +28,18 @@ export function useAccountScreenData(userId: string | undefined) {
       }
       if (!silent) setLoading(true);
       try {
-        const [profRes, ridesRes, resvRes, walletRes] = await Promise.all([
-          fetchUserMe(),
-          fetchRidesForUser(userId),
-          fetchReservationsForUser(userId),
-          fetchWalletOverview(),
-        ]);
+        const { data: summary, error } = await fetchAccountSummary();
 
-        setProfile(profRes.data ?? null);
+        setProfile(summary?.profile ?? null);
+        setRides(summary?.rides ?? []);
+        setReservations(summary?.reservations ?? []);
 
-        if (!ridesRes.error && ridesRes.data) setRides(ridesRes.data);
-        else setRides([]);
-
-        if (!resvRes.error && resvRes.data) setReservations(resvRes.data);
-        else setReservations([]);
-
-        if (!walletRes.error) {
-          setPurchases(walletRes.purchases);
+        if (summary?.wallet) {
+          setPurchases(summary.wallet.purchases ?? []);
           setWalletError(null);
         } else {
           setPurchases([]);
-          setWalletError(walletRes.error?.message ?? 'Wallet unavailable');
+          setWalletError(summary?.errors.wallet ?? error?.message ?? 'Wallet unavailable');
         }
       } finally {
         setLoading(false);
