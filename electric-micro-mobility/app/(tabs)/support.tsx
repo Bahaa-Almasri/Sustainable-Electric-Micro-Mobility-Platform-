@@ -16,7 +16,7 @@ import {
 } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
+import { ListScreenSkeleton } from '@/components/screen-skeletons';
 import { Colors, LoaderAccent } from '@/constants/theme';
 import { useAuth } from '@/contexts/auth-context';
 import { useColorScheme } from '@/hooks/use-color-scheme';
@@ -118,11 +118,7 @@ export default function SupportScreen() {
   }
 
   if (loading && !refreshing) {
-    return (
-      <ThemedView style={[styles.centered, { backgroundColor: PAGE_BG }]}>
-        <ActivityIndicator size="large" color={LoaderAccent} />
-      </ThemedView>
-    );
+    return <ListScreenSkeleton pageBg={PAGE_BG} cardBg={cardBg} withHeading={false} />;
   }
 
   return (
@@ -311,7 +307,6 @@ const styles = StyleSheet.create({
   },
   emptyWrap: { paddingVertical: 40, paddingHorizontal: 16 },
   empty: { textAlign: 'center', fontSize: 14 },
-  centered: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   modalBackdrop: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.45)',

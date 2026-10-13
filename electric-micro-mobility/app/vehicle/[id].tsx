@@ -7,8 +7,8 @@ import { ActivityIndicator, Alert, Image, Modal, Pressable, ScrollView, StyleShe
 
 import { ScanToRideModal } from '@/components/scan-to-ride-modal';
 import { ThemedText } from '@/components/themed-text';
+import { VehicleDetailSkeleton } from '@/components/screen-skeletons';
 import { ThemedView } from '@/components/themed-view';
-import { LoaderAccent } from '@/constants/theme';
 import { useAuth } from '@/contexts/auth-context';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import {
@@ -244,11 +244,7 @@ export default function VehicleDetailScreen() {
   }
 
   if (loading) {
-    return (
-      <ThemedView style={styles.centered}>
-        <ActivityIndicator size="large" color={LoaderAccent} />
-      </ThemedView>
-    );
+    return <VehicleDetailSkeleton pageBg={isDark ? '#0F1112' : '#F6F7F8'} />;
   }
 
   if (error || !vehicle) {
@@ -438,7 +434,6 @@ const styles = StyleSheet.create({
     gap: 14,
     paddingBottom: 28,
   },
-  centered: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   muted: { opacity: 0.8, fontSize: 15, lineHeight: 22 },
   heroCard: {
     borderRadius: 24,

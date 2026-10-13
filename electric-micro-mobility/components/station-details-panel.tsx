@@ -1,10 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
 import { memo, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
+import { Modal, Pressable, ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
 
 import { StationVehicleCard } from '@/components/station-vehicle-card';
 import { ThemedText } from '@/components/themed-text';
-import { LoaderAccent } from '@/constants/theme';
+import { StationVehiclesSkeleton } from '@/components/screen-skeletons';
 import { VehicleFiltersPanel } from '@/components/vehicle-filters-panel';
 import { useVehicleFilters } from '@/hooks/use-vehicle-filters';
 import type { RidePricingCatalog, StationRow, VehicleWithState } from '@/types/entities';
@@ -162,10 +162,7 @@ export const StationDetailsPanel = memo(function StationDetailsPanel({
           ) : null}
 
           {loading ? (
-            <View style={[styles.feedbackWrap, { backgroundColor: cardBg, borderColor: cardBorder }]}>
-              <ActivityIndicator color={LoaderAccent} />
-              <ThemedText style={styles.feedbackText}>Loading vehicles at this station…</ThemedText>
-            </View>
+            <StationVehiclesSkeleton cardWidth={cardWidth} cardBg={cardBg} />
           ) : error ? (
             <View style={[styles.feedbackWrap, { backgroundColor: cardBg, borderColor: cardBorder }]}>
               <Ionicons name="alert-circle-outline" size={24} color="#D90429" />

@@ -17,7 +17,7 @@ import {
 } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
+import { ListScreenSkeleton } from '@/components/screen-skeletons';
 import { Colors, LoaderAccent } from '@/constants/theme';
 import { useAuth } from '@/contexts/auth-context';
 import { useColorScheme } from '@/hooks/use-color-scheme';
@@ -398,11 +398,7 @@ export default function ReservationsScreen() {
   );
 
   if (loading && !refreshing) {
-    return (
-      <ThemedView style={[styles.centered, { backgroundColor: pageBg }]}>
-        <ActivityIndicator size="large" color={LoaderAccent} />
-      </ThemedView>
-    );
+    return <ListScreenSkeleton pageBg={pageBg} cardBg={cardBg} />;
   }
 
   return (
@@ -599,7 +595,6 @@ export default function ReservationsScreen() {
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
-  centered: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   toolbar: {
     paddingHorizontal: 20,
     paddingTop: 12,
