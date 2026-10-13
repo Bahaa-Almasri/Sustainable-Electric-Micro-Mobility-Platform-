@@ -318,6 +318,99 @@ export async function getActiveRideForUser(_userId: string): Promise<{
   }
 }
 
+/** Sections an aggregate endpoint could not load, keyed by section name (the rest of the response is still usable). */
+type AggregateErrors = Record<string, string>;
+
+export type MapOverview = {
+  activeRide: RideRowWithVehicle | null;
+  pricing: RidePricingCatalog | null;
+  /** Active stations; empty while the user has an active ride. */
+  stations: StationRow[];
+  /** Stations with a free parking slot; only filled while the user has an active ride. */
+  parkingStations: StationRow[];
+};
+
+/** One request for the map screen: active ride, pricing and the right station list. */
+export async function fetchMapOverview(): Promise<{ data: MapOverview | null; error: string | null }> {
+  try {
+    const res = await apiFetch<{
+      active_ride: RideRowWithVehicle | null;
+      pricing_rates: RidePricingCatalog | null;
+      stations: StationRow[];
+      parking_stations: StationRow[];
+      errors?: AggregateErrors;
+    }>('/map/overview');
+    return {
+      data: {
+        activeRide: res.active_ride ?? null,
+        pricing: res.pricing_rates ?? null,
+        stations: Array.isArray(res.stations) ? res.stations : [],
+        parkingStations: Array.isArray(res.parking_stations) ? res.parking_stations : [],
+      },
+      error: null,
+    };
+  } catch (e) {
+    return { data: null, error: errMessage(e) };
+  }
+}
+
+export type AccountSummary = {
+  profile: UserRow;
+  rides: RideRow[] | null;
+  reservations: ReservationRow[] | null;
+  wallet: {
+    purchases: PurchaseRow[];
+    payment_methods: PaymentMethodRow[];
+    recent_payments: PaymentRow[];
+  } | null;
+  errors: AggregateErrors;
+};
+
+/** One request for the account screen: profile, rides, reservations and wallet. */
+export async function fetchAccountSummary(): Promise<{ data: AccountSummary | null; error: Error | null }> {
+  try {
+    const res = await apiFetch<AccountSummary>('/users/me/summary');
+    return { data: { ...res, errors: res.errors ?? {} }, error: null };
+  } catch (e) {
+    return { data: null, error: e instanceof Error ? e : new Error(errMessage(e)) };
+  }
+}
+
+export type VehicleDetails = {
+  vehicle: VehicleWithState;
+  /** The current user's reservations for this vehicle only; null if they could not be loaded. */
+  myReservations: ReservationRow[] | null;
+  pricing: RidePricingCatalog | null;
+};
+
+/** One request for the vehicle screen: the vehicle, your reservations for it, and pricing. */
+export async function fetchVehicleDetails(vehicleId: string): Promise<{
+  data: VehicleDetails | null;
+  error: string | null;
+}> {
+  try {
+    const res = await apiFetch<{
+      vehicle: VehicleWithState;
+      my_reservations: ReservationRow[] | null;
+      pricing_rates: RidePricingCatalog | null;
+      errors?: AggregateErrors;
+    }>(`/vehicles/${encodeURIComponent(vehicleId)}/details`);
+    return {
+      data: {
+        vehicle: res.vehicle,
+        myReservations: Array.isArray(res.my_reservations) ? res.my_reservations : null,
+        pricing: res.pricing_rates ?? null,
+      },
+      error: null,
+    };
+  } catch (e) {
+    if (e instanceof ApiError && e.status === 404) {
+      return { data: null, error: 'Vehicle not found' };
+    }
+    return { data: null, error: errMessage(e) };
+  }
+}
+
 export type StartRideResult = {
   ok: boolean;
   ride_id?: string;
