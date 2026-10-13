@@ -4,6 +4,7 @@ import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useMemo } from 'react';
 
+import { OfflineBanner } from '@/components/offline-banner';
 import { AuthProvider } from '@/contexts/auth-context';
 import { PreferencesProvider } from '@/contexts/preferences-context';
 import { useColorScheme } from '@/hooks/use-color-scheme';
@@ -38,6 +39,7 @@ function RootLayoutContent() {
           }}
         />
       </Stack>
+      <OfflineBanner />
       <StatusBar style={statusStyle} />
     </ThemeProvider>
   );

@@ -15,6 +15,7 @@ import { RideEndReceiptModal } from '@/components/ride-end-receipt-modal';
 import { ScanToRideModal } from '@/components/scan-to-ride-modal';
 import { StationDetailsPanel } from '@/components/station-details-panel';
 import { ThemedText } from '@/components/themed-text';
+import { SlowConnectionHint } from '@/components/ui/skeleton';
 import { ThemedView } from '@/components/themed-view';
 import { LoaderAccent } from '@/constants/theme';
 import { useAuth } from '@/contexts/auth-context';
@@ -228,6 +229,7 @@ export default function MapScreen() {
       {loading ? (
         <ThemedView style={styles.overlay}>
           <ActivityIndicator size="large" color={LoaderAccent} />
+          <SlowConnectionHint />
         </ThemedView>
       ) : null}
 

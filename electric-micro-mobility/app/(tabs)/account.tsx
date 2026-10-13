@@ -3,7 +3,6 @@ import Constants from 'expo-constants';
 import { router, type Href } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
 import {
-  ActivityIndicator,
   Alert,
   Pressable,
   RefreshControl,
@@ -25,6 +24,7 @@ import { SettingsSection } from '@/components/account/settings-section';
 import { StatsSummary, type StatItem } from '@/components/account/stats-summary';
 import { ToggleRow } from '@/components/account/toggle-row';
 import { ThemedText } from '@/components/themed-text';
+import { AccountSkeleton } from '@/components/screen-skeletons';
 import { ThemedView } from '@/components/themed-view';
 import { LoaderAccent } from '@/constants/theme';
 import { useAuth } from '@/contexts/auth-context';
@@ -310,14 +310,7 @@ export default function AccountScreen() {
   }, []);
 
   if (loading && !refreshing) {
-    return (
-      <ThemedView
-        style={[styles.centered, styles.loadingScreen]}
-        lightColor={pageBg}
-        darkColor={pageBg}>
-        <ActivityIndicator size="large" color={LoaderAccent} />
-      </ThemedView>
-    );
+    return <AccountSkeleton pageBg={pageBg} cardBg={cardBg} />;
   }
 
   return (
@@ -717,13 +710,6 @@ export default function AccountScreen() {
 
 const styles = StyleSheet.create({
   flex: {
-    flex: 1,
-  },
-  centered: {
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  loadingScreen: {
     flex: 1,
   },
   scrollContent: {

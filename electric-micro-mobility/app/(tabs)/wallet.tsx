@@ -15,7 +15,7 @@ import {
 } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
+import { WalletSkeleton } from '@/components/screen-skeletons';
 import { Colors, LoaderAccent } from '@/constants/theme';
 import { useAuth } from '@/contexts/auth-context';
 import { useColorScheme } from '@/hooks/use-color-scheme';
@@ -125,11 +125,7 @@ export default function WalletScreen() {
   }
 
   if (loading && !refreshing) {
-    return (
-      <ThemedView style={[styles.centered, { backgroundColor: pageBg }]}>
-        <ActivityIndicator size="large" color={LoaderAccent} />
-      </ThemedView>
-    );
+    return <WalletSkeleton pageBg={pageBg} cardBg={cardSurface} />;
   }
 
   return (
@@ -527,11 +523,5 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 11,
     fontWeight: '700',
-  },
-  centered: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 12,
   },
 });
