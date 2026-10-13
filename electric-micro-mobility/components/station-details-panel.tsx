@@ -89,8 +89,10 @@ export const StationDetailsPanel = memo(function StationDetailsPanel({
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <Pressable style={styles.backdrop} onPress={onClose}>
-        <Pressable style={[styles.sheet, { backgroundColor: sheetBg }]} onPress={() => {}} accessibilityRole="none">
+      <View style={styles.backdrop}>
+        {/* Tap-outside-to-close sits behind the sheet: wrapping the sheet in a Pressable steals swipes from the vehicle rail on iOS. */}
+        <Pressable style={StyleSheet.absoluteFill} onPress={onClose} accessibilityLabel="Close station details" />
+        <View style={[styles.sheet, { backgroundColor: sheetBg }]}>
           <View style={[styles.grabber, { backgroundColor: grabberBg }]} />
 
           <View style={styles.headerRow}>
@@ -211,8 +213,8 @@ export const StationDetailsPanel = memo(function StationDetailsPanel({
               ))}
             </ScrollView>
           )}
-        </Pressable>
-      </Pressable>
+        </View>
+      </View>
     </Modal>
   );
 });

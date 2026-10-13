@@ -1,6 +1,6 @@
 import { router, useFocusEffect, type Href } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Modal, Pressable, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Alert, Pressable, StyleSheet, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 
@@ -168,14 +168,14 @@ export default function MapScreen() {
       const backendMessage = data?.message?.trim();
       const message = backendMessage || 'Your vehicle has been reserved successfully.';
       setReserveSuccessMessage(message);
+      // Close the station sheet now so only one native modal is ever up; iOS can leave an
+      // invisible, touch-blocking layer when stacked modals are dismissed together.
+      setSelectedStation(null);
       setReserveSuccessVisible(true);
-      if (selectedStation) {
-        void loadStationVehicles(selectedStation);
-      }
     } finally {
       setReserveBusyVehicleId((current) => (current === vehicleId ? null : current));
     }
-  }, [loadStationVehicles, selectedStation, startRideBusyVehicleId, user]);
+  }, [startRideBusyVehicleId, user]);
 
   const selectedScanVehicle = useMemo(
     () => stationVehicles.find((v) => v.vehicle_id === scanVehicleId) ?? null,
@@ -220,7 +220,6 @@ export default function MapScreen() {
     console.log('[Map] reservation success modal OK pressed');
     console.log('[Map] navigating to reservations route', { route: reservationsRoute });
     setReserveSuccessVisible(false);
-    setSelectedStation(null);
     router.push(reservationsRoute);
   }, []);
 
@@ -324,11 +323,7 @@ export default function MapScreen() {
             onToggleShowEmptyStations={() => setShowEmptyStations((prev) => !prev)}
             onReset={() => setShowEmptyStations(false)}
           />
-          <Modal
-            visible={reserveSuccessVisible}
-            transparent
-            animationType="fade"
-            onRequestClose={() => setReserveSuccessVisible(false)}>
+          {reserveSuccessVisible ? (
             <View style={styles.successOverlay}>
               <View
                 style={[
@@ -348,7 +343,7 @@ export default function MapScreen() {
                 </Pressable>
               </View>
             </View>
-          </Modal>
+          ) : null}
         </>
       )}
       <RideEndReceiptModal
@@ -429,7 +424,11 @@ const styles = StyleSheet.create({
     zIndex: 5,
   },
   successOverlay: {
-    flex: 1,
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
     backgroundColor: 'rgba(8,12,14,0.52)',
     alignItems: 'center',
     justifyContent: 'center',
