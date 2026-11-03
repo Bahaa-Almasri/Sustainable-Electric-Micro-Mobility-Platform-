@@ -1,6 +1,7 @@
 **/bin/
 **/obj/
 **/TestResults/
+**/logs/
 **/appsettings.Development.json
 **/appsettings.Local.json
 .venv/

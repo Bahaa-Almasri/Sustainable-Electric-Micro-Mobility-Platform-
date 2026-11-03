@@ -65,6 +65,25 @@ line (last wins). Override any key with `__` as the separator, e.g.
 | `RateLimiting:GlobalPermitLimit` / `AuthPermitLimit` | Requests per minute (per user, else per IP) / register+login per IP. |
 | `Reservations:*TtlMinutes` | Default and allowed range for reservation hold times. |
 
+## Logs
+
+Logs go to the console and to rolling daily files in `MicroMobility/logs/`
+(`micromobility-YYYYMMDD.log`, kept 14 days, gitignored). Each line in the file carries the request
+id in brackets:
+
+```
+2026-11-03 16:16:57.598 +02:00 [INF] [0HNPPMKF632SL] Serilog.AspNetCore.RequestLoggingMiddleware: HTTP GET /rides/me responded 401 in 15 ms
+```
+
+- **One line per request** (method, path, status, duration). Health checks, the realtime hub and
+  the Hangfire dashboard are left out, and query strings, headers and bodies are never logged.
+- **Finding one request:** every response has an `X-Request-Id` header (500 bodies also carry it as
+  `trace_id`). Search the log file for it to get every line that request produced.
+- **Startup failures** (port already in use, bad connection string) are logged with a plain hint.
+- **Levels** live in the `Serilog` section of appsettings. To log every SQL statement, set
+  `Serilog:MinimumLevel:Override:Microsoft.EntityFrameworkCore.Database.Command` to `Information`.
+- **Files** are configured under `LogFiles` (`Enabled`, `Path`, `RetainedDays`).
+
 ## Contract notes for clients
 
 - JSON is snake_case, enums are snake_case strings (`"in_use"`), timestamps are UTC with a `Z`.

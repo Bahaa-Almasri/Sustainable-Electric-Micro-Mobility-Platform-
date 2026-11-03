@@ -44,6 +44,7 @@ public sealed class MicroMobilityWebApplicationFactory : WebApplicationFactory<P
         builder.UseSetting("Hangfire:Enabled", "false");
         builder.UseSetting("RateLimiting:GlobalPermitLimit", "100000");
         builder.UseSetting("RateLimiting:AuthPermitLimit", "100000");
+        builder.UseSetting("LogFiles:Enabled", "false");   // test runs must not fill the dev logs/ folder
         foreach (var (key, value) in _overrides) builder.UseSetting(key, value);
     }
 }

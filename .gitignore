@@ -10,6 +10,7 @@ backend/**/appsettings.Local.json
 backend/**/bin/
 backend/**/obj/
 backend/**/TestResults/
+backend/**/logs/
 *.user
 
 # Legacy Python backend leftovers (local only)
