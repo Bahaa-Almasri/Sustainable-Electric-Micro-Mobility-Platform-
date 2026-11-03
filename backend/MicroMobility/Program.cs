@@ -343,7 +343,16 @@ builder.Services.AddSwaggerGen(c =>
 {
     c.SwaggerDoc("v1", new OpenApiInfo { Title = "Micro-mobility API", Version = "v1" });
     var xmlDocs = Path.Combine(AppContext.BaseDirectory, $"{typeof(Program).Assembly.GetName().Name}.xml");
-    if (File.Exists(xmlDocs)) c.IncludeXmlComments(xmlDocs);
+    // Opened as a stream: the path overload parses the path as a URI, which fails for some
+    // perfectly valid Windows paths (and then breaks every request that touches Swagger options).
+    if (File.Exists(xmlDocs))
+    {
+        c.IncludeXmlComments(() =>
+        {
+            using var stream = File.OpenRead(xmlDocs);
+            return new System.Xml.XPath.XPathDocument(stream);
+        });
+    }
 
     c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
