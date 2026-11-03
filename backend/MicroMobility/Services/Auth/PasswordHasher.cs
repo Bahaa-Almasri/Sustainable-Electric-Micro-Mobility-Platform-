@@ -9,8 +9,8 @@ public interface IPasswordHasher
 }
 
 /// <summary>
-/// bcrypt, cost 12, $2b$ — the same parameters Python's bcrypt used, so existing hashes verify and
-/// new ones are interchangeable with them.
+/// bcrypt, cost 12, $2b$ — the format of the hashes already stored in users.password_hash, so
+/// existing accounts verify and new hashes are interchangeable with them.
 /// </summary>
 public sealed class BcryptPasswordHasher : IPasswordHasher
 {

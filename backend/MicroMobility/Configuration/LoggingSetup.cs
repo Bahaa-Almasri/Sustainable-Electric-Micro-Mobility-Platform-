@@ -100,7 +100,7 @@ public static class LoggingSetup
 
         var hint = FindInChain<AddressInUseException>(exception) is not null
             ? $"The port in App:Url ({configuration["App:Url"]}) is already in use — is another copy of the backend "
-              + "(or the old Python one) still running? Stop it, or start this one with a different App__Url."
+              + "or another server still running on it? Stop it, or start this one with a different App__Url."
             : FindInChain<Npgsql.NpgsqlException>(exception) is not null
                 ? "Could not use the database. Check ConnectionStrings:DefaultConnection in appsettings.Development.json "
                   + "(the full Neon postgresql:// URI, with your real role and password)."

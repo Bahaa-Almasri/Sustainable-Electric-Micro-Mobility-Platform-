@@ -80,7 +80,7 @@ public interface IReservationFreshness
 
 /// <summary>
 /// Used when Hangfire is off (tests, a minimal deployment): nothing else expires reservations, so
-/// reads do it themselves, exactly as the Python API did on every request.
+/// reads do it themselves on every request.
 /// </summary>
 public sealed class InlineReservationFreshness : IReservationFreshness
 {

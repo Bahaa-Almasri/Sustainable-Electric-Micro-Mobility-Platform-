@@ -12,8 +12,3 @@ backend/**/obj/
 backend/**/TestResults/
 backend/**/logs/
 *.user
-
-# Legacy Python backend leftovers (local only)
-backend/.venv/
-backend/.env
-__pycache__/

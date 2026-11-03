@@ -45,7 +45,7 @@ With the defaults (`Database:MigrateOnStartup=true`, `Hangfire:Enabled=true`) th
 
 Hangfire polls the database every 15 seconds while the API runs, which keeps a Neon compute awake
 (it can still scale to zero once the API stops). Set `Hangfire:Enabled=false` to run without it —
-reads then expire lapsed reservations inline, as the Python API did.
+reads then expire lapsed reservations inline on every request.
 
 ## Configuration
 

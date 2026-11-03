@@ -75,9 +75,9 @@ public sealed class AuthAndErrorContractTests : IntegrationTestBase
     }
 
     [Fact]
-    public async Task Login_accepts_a_password_hashed_by_the_python_api()
+    public async Task Login_accepts_a_password_hash_stored_before_the_migration()
     {
-        // Produced by Python: bcrypt.hashpw(b"correct horse battery", bcrypt.gensalt())
+        // A stored-format hash ($2b$, cost 12) of "correct horse battery", as existing accounts have.
         await WithDbAsync(async db =>
         {
             db.Users.Add(new User
@@ -103,7 +103,7 @@ public sealed class AuthAndErrorContractTests : IntegrationTestBase
     }
 
     [Fact]
-    public async Task A_session_token_minted_by_the_python_api_keeps_working()
+    public async Task A_previously_issued_session_token_keeps_working()
     {
         var (user, _) = await SignedInUserAsync();
         var header = B64(JsonSerializer.SerializeToUtf8Bytes(new { alg = "HS256", typ = "JWT" }));

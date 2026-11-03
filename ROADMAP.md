@@ -6,7 +6,7 @@ Last updated: 2026-09-27
 
 ## Current state (for context)
 
-- **Backend**: ASP.NET Core 9 + EF Core + PostgreSQL (Neon), Hangfire jobs, SignalR hub. JWT auth, vehicles, stations, rides, reservations, wallet, support controllers. Ported from FastAPI on 2026-11-03.
+- **Backend**: ASP.NET Core 9 + EF Core + PostgreSQL (Neon), Hangfire jobs, SignalR hub. JWT auth, vehicles, stations, rides, reservations, wallet, support controllers.
 - **Frontend**: Expo Router (SDK 54, React 19) app with tabs for map, wallet, reservations, account, support. OSM/Leaflet map, QR scan-to-ride, account settings/preferences, dark mode.
 - **Known rough spots**: wallet purchases are recorded as `completed` without a real payment gateway; vehicle position/battery only change on ride start/end (no live telemetry); support tickets can be created and listed but not replied to; no admin tooling; no automated tests or CI; no crash/error monitoring.
 

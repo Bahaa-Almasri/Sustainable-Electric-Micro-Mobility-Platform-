@@ -4,7 +4,5 @@
 **/logs/
 **/appsettings.Development.json
 **/appsettings.Local.json
-.venv/
-.env
 legacy-sql/
 MicroMobility.Testing*/

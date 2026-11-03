@@ -39,8 +39,8 @@ public sealed class JwtTokenService : ITokenService
     public static SymmetricSecurityKey CreateSigningKey(string secret) => new(Encoding.UTF8.GetBytes(secret));
 
     /// <summary>
-    /// Validation rules matching what the Python API (python-jose) enforced: HS256 only, a required
-    /// exp with no clock leeway, no issuer or audience.
+    /// Validation rules: HS256 only, a required exp with no clock leeway, no issuer or audience —
+    /// the shape of every token issued so far, so existing sessions stay valid.
     /// </summary>
     public static TokenValidationParameters CreateValidationParameters(string secret) => new()
     {
