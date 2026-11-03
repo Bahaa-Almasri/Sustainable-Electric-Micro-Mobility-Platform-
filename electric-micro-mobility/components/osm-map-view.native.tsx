@@ -5,11 +5,14 @@ import { WebView } from 'react-native-webview';
 import { OSM_LEAFLET_HTML, serializeMapPayload } from '@/components/osm-leaflet-html';
 import type { OsmMapViewProps, OsmMapViewRef } from '@/components/osm-map-types';
 
+/** react-native-webview 14 defaults its extra props to `undefined`, which makes every prop `never` with React 19.3 types. */
+const MapWebView = WebView<object>;
+
 export const OsmMapView = forwardRef<OsmMapViewRef, OsmMapViewProps>(function OsmMapView(
   { style, region, stations, userLocation, onStationPress, stationMarkerMode = 'browse' },
   ref
 ) {
-  const webRef = useRef<WebView>(null);
+  const webRef = useRef<WebView<object>>(null);
   const loadedRef = useRef(false);
   const stationsRef = useRef(stations);
   stationsRef.current = stations;
@@ -49,7 +52,7 @@ export const OsmMapView = forwardRef<OsmMapViewRef, OsmMapViewProps>(function Os
   }, [region, stations, userLocation, stationMarkerMode, rideMode, pushPayload]);
 
   return (
-    <WebView
+    <MapWebView
       ref={webRef}
       style={[StyleSheet.absoluteFill, style]}
       originWhitelist={['*']}
