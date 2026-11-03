@@ -112,8 +112,8 @@ const HoldTicket = memo(function HoldTicket({ item, cancelling, onExpired, onVie
             <Text style={[styles.vehicleName, { color: c.text }]} numberOfLines={1}>
               {vehicleName(item)}
             </Text>
-            <Text style={[Type.secondary, styles.vehicleSub, { color: c.muted }]} numberOfLines={1}>
-              {(item.vehicles?.type ?? 'Vehicle').replace(/_/g, ' ')} · Your hold is active
+            <Text style={[Type.secondary, styles.vehicleSub, { color: c.muted }]} numberOfLines={2}>
+              Your hold is active until it expires.
             </Text>
           </View>
         </View>
@@ -231,6 +231,8 @@ export default function ReservationsScreen() {
     useCallback(() => {
       const silent = screenFocusRef.current;
       screenFocusRef.current = true;
+      // Arriving here usually follows a new hold, so show it rather than a stale Past tab.
+      setTab('active');
       void load({ silent });
     }, [load])
   );
@@ -355,7 +357,9 @@ export default function ReservationsScreen() {
         }
         ListHeaderComponent={
           <>
-            <PageHeader title="Reservations" />
+            <View style={styles.pageHeader}>
+              <PageHeader title="Reservations" />
+            </View>
             <UnderlineTabs options={tabs} value={tab} onChange={setTab} style={styles.tabs} />
           </>
         }
@@ -426,6 +430,7 @@ export default function ReservationsScreen() {
 const styles = StyleSheet.create({
   flex: { flex: 1 },
   list: { paddingHorizontal: 16, gap: 12, width: '100%', maxWidth: 560, alignSelf: 'center' },
+  pageHeader: { marginHorizontal: -16 },
   tabs: { marginHorizontal: 8, marginBottom: 4 },
   emptyWrap: { paddingHorizontal: 8 },
   ticket: { borderRadius: 26 },
@@ -436,7 +441,7 @@ const styles = StyleSheet.create({
   photoImage: { width: 76, height: 68 },
   vehicleText: { flex: 1, minWidth: 0 },
   vehicleName: { fontFamily: FontFamily.display, fontSize: 24, lineHeight: 28, letterSpacing: -0.6 },
-  vehicleSub: { textTransform: 'capitalize', fontSize: 14 },
+  vehicleSub: { fontSize: 14 },
   tear: { height: 24, justifyContent: 'center' },
   tearLine: { marginHorizontal: 18 },
   notch: { position: 'absolute', top: 0, width: 24, height: 24, borderRadius: 12, borderWidth: 1 },

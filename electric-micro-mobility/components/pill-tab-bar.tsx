@@ -89,14 +89,16 @@ const styles = StyleSheet.create({
   },
   active: {
     height: 48,
-    paddingHorizontal: 18,
+    paddingHorizontal: 14,
     borderRadius: 24,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
   },
+  // Shrinks on narrow phones so the active pill never pushes a tab off the bar.
   inactive: {
-    width: 48,
+    flex: 1,
+    maxWidth: 48,
     height: 48,
     alignItems: 'center',
     justifyContent: 'center',

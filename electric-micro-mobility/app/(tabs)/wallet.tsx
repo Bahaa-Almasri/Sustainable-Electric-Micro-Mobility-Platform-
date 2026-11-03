@@ -216,6 +216,7 @@ export default function WalletScreen() {
                   loading={buyingId === pkg.package_id}
                   height={44}
                   radius={14}
+                  style={styles.buy}
                   accessibilityLabel={`Buy ${pkg.title ?? 'package'} for ${formatMoney(pkg.price, pkg.currency)}`}
                 />
               </View>
@@ -294,7 +295,7 @@ export default function WalletScreen() {
                   Payment
                 </Text>
                 <Text style={[Type.secondary, styles.capitalize, { color: c.muted }]} numberOfLines={1}>
-                  {[formatDay(pay.created_at), pay.status ?? 'unknown', pay.method].filter(Boolean).join(' · ')}
+                  {[formatDay(pay.created_at), pay.status ?? 'unknown', pay.method?.replace(/_/g, ' ')].filter(Boolean).join(' · ')}
                 </Text>
               </View>
               <Text style={[styles.amount, { color: c.text }]}>{formatMoney(pay.amount, pay.currency)}</Text>
@@ -343,6 +344,7 @@ const styles = StyleSheet.create({
   packageName: { fontFamily: FontFamily.bold, fontSize: 14 },
   packageCount: { fontFamily: FontFamily.display, fontSize: 36, lineHeight: 42, letterSpacing: -1 },
   packageTear: { marginVertical: 12 },
+  buy: { paddingHorizontal: 2 },
   list: { paddingHorizontal: 16 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12 },
   rowIcon: { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },

@@ -1,6 +1,5 @@
 import type { ReactNode } from 'react';
 import { StyleSheet, View } from 'react-native';
-import Svg, { Line } from 'react-native-svg';
 
 import { useWayfinder } from '@/hooks/use-wayfinder';
 
@@ -34,9 +33,11 @@ export function RouteStop({ state, line, centered = false, dotOffset = 22, child
         <View style={[styles.dot, dot as object]} />
         {line === 'dashed' ? (
           <View style={styles.dashedRail}>
-            <Svg width={2} height="100%">
-              <Line x1="1" y1="0" x2="1" y2="100%" stroke={c.accent} strokeWidth={2} strokeDasharray="4 5" />
-            </Svg>
+            <View style={styles.dashes}>
+              {Array.from({ length: 12 }, (_, i) => (
+                <View key={i} style={[styles.dash, { backgroundColor: c.accent }]} />
+              ))}
+            </View>
           </View>
         ) : line ? (
           <View style={[styles.line, { backgroundColor: line === 'text' ? c.text : c.accent }]} />
@@ -53,6 +54,8 @@ const styles = StyleSheet.create({
   rail: { width: 16, alignItems: 'center' },
   dot: { width: 16, height: 16, borderRadius: 8 },
   line: { flex: 1, width: 2 },
-  dashedRail: { flex: 1, width: 2 },
+  dashedRail: { flex: 1, width: 2, overflow: 'hidden' },
+  dashes: { position: 'absolute', top: 2, left: 0, gap: 5 },
+  dash: { width: 2, height: 4 },
   body: { flex: 1, minWidth: 0 },
 });

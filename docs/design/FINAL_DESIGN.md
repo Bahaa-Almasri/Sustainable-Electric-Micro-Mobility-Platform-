@@ -4,7 +4,7 @@ This is the design spec for the EcoMobility mobile app (iOS and Android, Expo / 
 
 The final design is **Wayfinder** (Design D). Wallet, Support and Account use the layouts from **Coral Clarity** (Design A), drawn in Wayfinder's type, colours and components.
 
-> **This is a design, not code.** Nothing in the app has been changed yet. All names, prices, stations and numbers in the pictures are sample data.
+> **Status:** built in the Expo app on `feat/wayfinder-frontend-revamp`. All names, prices, stations and numbers in the pictures are sample data.
 >
 > Some functions shown here don't work yet. Their designs stay, and they're tracked in the [Feature Agenda](FEATURE_AGENDA.md).
 
@@ -98,8 +98,8 @@ Two typefaces, both free on Google Fonts:
 
 | Style | Font | Size | Weight | Letter spacing | Used for |
 |---|---|---|---|---|---|
-| Hero number | Bricolage | 112–136 | 800 | −5 to −7 | Battery, ride balance |
-| Ride timer | Bricolage | 104 | 800 | 0 | Active ride, centred |
+| Hero number | Bricolage | 112 | 800 | −5 | Battery |
+| Ride timer | Bricolage | 84 | 800 | 0 | Active ride, centred |
 | Page hero | Bricolage | 58 | 800 | −2.5 | "Join the network." |
 | Countdown | Bricolage | 60–76 | 800 | −2.5 to −3 | Hold timer, Wallet balance |
 | Page title | Bricolage | 42–44 | 800 | −1.8 | Reservations, Wallet, Support, Welcome back |
@@ -132,7 +132,7 @@ Timers use tabular numbers so the digits don't jump as they count.
 
 ### 2.4 Texture and icons
 
-- **Paper grain:** a very faint noise layer behind the content, at 7% opacity in light and 10% in dark. It's optional, and a small tiled PNG is enough. It isn't used on the Map screen.
+- **Paper grain:** optional and not built yet. It's in the pictures as a very faint noise layer, at 7% opacity in light and 10% in dark.
 - **Icons:** 2–2.2 stroke, rounded ends. Tab icons are custom: route (Map), stopwatch (Reservations), ticket (Wallet), speech bubble (Support), person (Account).
 
 ---
@@ -141,7 +141,7 @@ Timers use tabular numbers so the digits don't jump as they count.
 
 ### Tab bar
 
-Floating pill, 64 high, radius 32, 16 from each edge and 22 from the bottom, using the `inverse` colour. The active tab is a coral pill (48 high) with icon and label, and inactive tabs are icons only. In dark mode the bar is cream, so it stands out against the screen.
+Floating pill, 64 high, radius 32, 16 from each edge, using the `inverse` colour. The active tab is a coral pill (48 high) with icon and label, and inactive tabs are icons only that shrink on narrow phones. In dark mode the bar is cream, so it stands out against the screen.
 
 ### Buttons
 
@@ -259,7 +259,7 @@ Coral pill (22 × 6) and grey dot (6 × 6). See [Open decisions](#7-open-decisio
 |---|---|
 | <img src="screens/light/05-active-ride.png" width="300" alt="Active ride, light"> | <img src="screens/dark/05-active-ride.png" width="300" alt="Active ride, dark"> |
 
-**Layout:** small map card with an "Active ride" pill and Refresh. Centred timer at 104. Route line: start station, You are here, any station with free spots. Battery, range and cost in a divided row. Stop ride in `inverse` at the bottom, on purpose: it should be easy to find but not look like a casual action.
+**Layout:** small map card with an "Active ride" pill and Refresh. Centred timer at 84. Route line: start station, You are here, any station with free spots. Battery, range and cost in a divided row. Stop ride in `inverse` at the bottom, on purpose: it should be easy to find but not look like a casual action.
 
 **Keeps:** duration, battery, estimated range, Refresh map, Stop ride.
 
@@ -267,7 +267,7 @@ Coral pill (22 × 6) and grey dot (6 × 6). See [Open decisions](#7-open-decisio
 
 **Code:** `components/active-ride-bottom-card.tsx`, `app/(tabs)/map.tsx`
 
-**Note:** the app shows a ride as a small card floating over the full map today, with the tab bar in place. This design is a full screen with a small map and no tab bar, so it's a layout change, not only a restyle. See [Open decisions](#7-open-decisions).
+**Built differently from the picture:** the tab bar stays visible during a ride, so riders can still reach Support and their other tabs as they can today.
 
 ### 6. Reservations
 
@@ -279,11 +279,9 @@ Coral pill (22 × 6) and grey dot (6 × 6). See [Open decisions](#7-open-decisio
 
 **Keeps:** Find on map, View details, Cancel reservation with confirm, Reserve by vehicle ID.
 
-**Must also handle:** Remove reservation on past items, empty state.
+**Also handles:** the Past tab (view details only, because only active holds can be cancelled) and the empty state. The hold segments scale to the real hold length.
 
 **Code:** `app/(tabs)/reservations.tsx`
-
-**Note:** the backend allows holds of 1–60 minutes. If that length ever varies, use a smooth progress bar instead of fixed segments.
 
 ### 7. Wallet (A's layout in D's style)
 
@@ -313,7 +311,7 @@ Coral pill (22 × 6) and grey dot (6 × 6). See [Open decisions](#7-open-decisio
 
 **Code:** `app/(tabs)/support.tsx`
 
-**Note:** the app opens the form with a New ticket button today. This design always shows the form. If the ticket list gets long, keep the current button instead.
+**Note:** the form is always shown, replacing the old New ticket button, and Cancel clears it.
 
 ### 9. Account (A's layout in D's style)
 
@@ -327,7 +325,7 @@ Coral pill (22 × 6) and grey dot (6 × 6). See [Open decisions](#7-open-decisio
 
 **The picture shows only part of the list.** The screen scrolls, and everything else stays in the same grouped-list style: Language, Security, Change password, Identity verification, Emergency contact, Promo codes, Billing history, Safety tips, Help, About, Privacy, Terms, Delete account, Quick Actions and Recent Activity.
 
-The other stats (Total time, Favorite type, Active holds) can go in a second row or a swipeable stats card.
+The stats card has a second row: Total time, Ride credits and Active holds. Favorite type was removed because it was hardcoded to "E-scooter".
 
 **Code:** `app/(tabs)/account.tsx`, `components/account/*`
 
@@ -337,31 +335,27 @@ The other stats (Total time, Favorite type, Active holds) can go in a second row
 
 ### Fonts
 
-The fonts aren't in the project yet. `expo-font` is installed, so add:
-
-```bash
-npx expo install @expo-google-fonts/bricolage-grotesque @expo-google-fonts/instrument-sans
-```
+Loaded in `app/_layout.tsx` from `@expo-google-fonts/bricolage-grotesque` and `@expo-google-fonts/instrument-sans`. Use `FontFamily` from `constants/theme.ts`, not `fontWeight`, because custom fonts ignore it on Android.
 
 ### Theme
 
-- Put the tokens in `constants/theme.ts` and replace `accountSurfaces` in `components/account/account-theme.ts`.
-- The current accent `#FF4B41` stays in light mode.
-- The Theme setting already exists in preferences, so it should drive the new tokens.
+- Tokens live in `constants/theme.ts`. Read them with `useWayfinder()` from `hooks/use-wayfinder.ts`.
+- Shared parts are in `components/wayfinder/`.
+- The Theme setting in Account switches them.
 
 ### Tab bar
 
-Restyle `components/pill-tab-bar.tsx`. The navigation structure stays the same.
+`components/pill-tab-bar.tsx` floats over the screens, so scrolling screens pad their content with `useTabBarSpace()`.
 
-### New data the design needs
+### Where the new data comes from
 
-| Item | Screen | How to get it |
+| Item | Screen | Source |
 |---|---|---|
-| Walk time | Map | Estimate from distance (`lib/geo-distance.ts`) |
-| Cost so far | Active ride | `initial_fee + elapsed minutes × price_per_minute`, shown as an estimate. The final cost still comes from the backend. |
-| Distance ridden | Active ride | **Not available today.** The design keeps it, and it's on the [Feature Agenda](FEATURE_AGENDA.md#1-money-and-wrong-numbers). |
-| Start station name | Active ride | Needs a lookup from the ride's start point or start station |
-| Hold start time | Reservations | Use the reservation's `created_at` |
+| Walk time | Map | Estimated from distance (`lib/geo-distance.ts`) |
+| Cost so far | Active ride | `initial_fee + started minutes × price_per_minute`, an estimate. The final cost comes from the backend. |
+| Distance ridden | Active ride | Added up on the phone (`hooks/use-ride-distance.ts`). It isn't saved and restarts if the app reloads. See the [Feature Agenda](FEATURE_AGENDA.md#1-money-and-wrong-numbers). |
+| Start station name | Active ride | Nearest station to the ride's start point |
+| Hold start time | Reservations | The reservation's `created_at` |
 
 ### Accessibility
 
@@ -373,15 +367,11 @@ Restyle `components/pill-tab-bar.tsx`. The navigation structure stays the same.
 
 ## 6. Not designed yet
 
-These exist in the app and still need screens in this style:
+These have no picture yet. They're styled in the app with the same tokens:
 
-- Scan to Ride camera (`components/scan-to-ride-modal.tsx`)
-- Ride complete receipt (`components/ride-end-receipt-modal.tsx`)
-- Map Filters sheet (`components/map-stations-filter-sheet.tsx`)
-- Sign out confirmation (`components/account/sign-out-confirm-modal.tsx`)
-- Language and Theme picker (`components/account/preference-picker-modal.tsx`)
-- Loading skeletons (`components/screen-skeletons.tsx`) and offline banner (`components/offline-banner.tsx`)
-- Empty, error and permission states
+- Scan to Ride camera, ride receipt, Map Filters sheet
+- Sign out confirmation, Language and Theme picker
+- Loading skeletons, offline banner, empty and error states
 
 ---
 
@@ -391,7 +381,6 @@ These exist in the app and still need screens in this style:
 |---|---|---|
 | 1 | **Rides or minutes in the Wallet** | Rides are charged by the minute (`backend/app/services/pricing.py`), but packages sell ride credits. Nothing reduces `rides_remaining` when a ride ends, so the two aren't connected. The team needs to choose minute bundles, ride passes or a money balance. The design shows "rides" for now, matching the current code. |
 | 2 | **Sign-up step indicator** | The design shows two steps, but sign-up is one form. Remove the indicator, or add a real second step such as phone verification. |
-| 3 | **Active ride layout** | Moving from a card over the full map to a full screen means less map while riding, and it needs a tab bar decision. Build the full screen, or keep the card over the map and apply only the new style. |
 
 ---
 

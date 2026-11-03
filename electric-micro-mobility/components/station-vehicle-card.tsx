@@ -92,22 +92,19 @@ export const StationVehicleCard = memo(function StationVehicleCard({
             <View style={[styles.batteryTrack, { backgroundColor: c.line }]}>
               <View style={[styles.batteryFill, { width: `${batteryPct ?? 0}%`, backgroundColor: batteryColor }]} />
             </View>
-            <Text style={[Type.secondary, { color: c.muted }]} numberOfLines={1}>
+            <Text style={[Type.secondary, styles.batteryText, { color: c.muted }]} numberOfLines={1}>
               {batteryPct == null ? '—' : `${batteryPct}%`} · {rangeKm == null ? '—' : `${rangeKm} km`}
             </Text>
           </View>
-        </View>
-        <View style={styles.price}>
           {rate ? (
-            <>
+            <Text style={[styles.priceSub, { color: c.muted }]} numberOfLines={1}>
               <Text style={[styles.priceValue, { color: c.text }]}>${rate.price_per_minute.toFixed(2)}</Text>
-              <Text style={[styles.priceSub, { color: c.muted }]}>/min · ${rate.initial_fee.toFixed(2)} start</Text>
-            </>
+              /min · ${rate.initial_fee.toFixed(2)} start
+            </Text>
           ) : (
-            <>
-              <Text style={[styles.priceValue, { color: c.text }]}>${commerce.pricePerHour}</Text>
-              <Text style={[styles.priceSub, { color: c.muted }]}>/hr</Text>
-            </>
+            <Text style={[styles.priceSub, { color: c.muted }]} numberOfLines={1}>
+              <Text style={[styles.priceValue, { color: c.text }]}>${commerce.pricePerHour}</Text>/hr
+            </Text>
           )}
         </View>
       </View>
@@ -148,13 +145,13 @@ const styles = StyleSheet.create({
   top: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 6 },
   tile: { width: 64, height: 58, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
   image: { width: 56, height: 50 },
-  info: { flex: 1, minWidth: 0, gap: 6 },
+  info: { flex: 1, minWidth: 0, gap: 3 },
   name: { fontSize: 16 },
   batteryRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  batteryText: { flexShrink: 1 },
   batteryTrack: { width: 44, height: 4, borderRadius: 2, overflow: 'hidden' },
   batteryFill: { height: 4, borderRadius: 2 },
-  price: { alignItems: 'flex-end' },
-  priceValue: { fontFamily: FontFamily.display, fontSize: 18 },
+  priceValue: { fontFamily: FontFamily.display, fontSize: 17 },
   priceSub: { fontFamily: FontFamily.regular, fontSize: 12 },
   meta: { fontFamily: FontFamily.regular, fontSize: 12, lineHeight: 16 },
   actions: { flexDirection: 'row', gap: 8, marginTop: 8 },

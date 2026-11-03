@@ -36,10 +36,9 @@ export function PreferencePickerModal({
 }: Props) {
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <Pressable style={styles.backdrop} onPress={onClose} accessibilityRole="button">
-        <Pressable
-          style={[styles.sheet, { backgroundColor: colors.cardBg }]}
-          onPress={(e) => e.stopPropagation()}>
+      <View style={styles.backdrop}>
+        <Pressable style={StyleSheet.absoluteFill} onPress={onClose} accessibilityLabel="Close" />
+        <View style={[styles.sheet, { backgroundColor: colors.cardBg }]}>
           <View style={[styles.handleZone, { borderBottomColor: colors.divider }]}>
             <Text style={[styles.title, { color: colors.text }]}>{title}</Text>
             <Pressable onPress={onClose} hitSlop={12} accessibilityRole="button" accessibilityLabel="Close">
@@ -74,8 +73,8 @@ export function PreferencePickerModal({
               );
             })}
           </ScrollView>
-        </Pressable>
-      </Pressable>
+        </View>
+      </View>
     </Modal>
   );
 }

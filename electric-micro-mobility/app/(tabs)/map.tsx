@@ -258,7 +258,7 @@ export default function MapScreen() {
           <ActiveRideDetails
             activeRide={activeRide}
             ending={ending}
-            stations={stations}
+            stations={parkingStations}
             userLocation={userLocation}
             pricingCatalog={pricingCatalog}
             onEndRide={onEndRide}

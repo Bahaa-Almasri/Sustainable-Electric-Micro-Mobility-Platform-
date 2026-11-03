@@ -51,9 +51,9 @@ export function ToggleRow({
           value={value}
           onValueChange={onValueChange}
           disabled={disabled}
-          trackColor={{ false: c.line, true: c.accent }}
+          trackColor={{ false: c.muted, true: c.accent }}
           thumbColor={c.surface}
-          ios_backgroundColor={c.line}
+          ios_backgroundColor={c.muted}
           accessibilityLabel={title}
         />
       </View>

@@ -12,6 +12,8 @@ export const OSM_LEAFLET_HTML = `<!DOCTYPE html>
     html, body { margin:0; padding:0; height:100%; width:100%; overflow:hidden; }
     #map { position:absolute; top:0; left:0; right:0; bottom:0; }
     .leaflet-control-attribution { font-size:10px; max-width:50%; white-space:normal; }
+    .leaflet-top.leaflet-left { top: 112px; }
+    body.ride .leaflet-control-zoom { display: none; }
     body { --surface:#FAF9F6; --text:#121212; --muted:#5E5B55; --accent:#FF4B41; --on-accent:#121212; --halo:rgba(255,75,65,0.22); background:#E7E4DD; }
     body.dark { --surface:#1C1B19; --text:#F1EFEA; --muted:#A39F97; --accent:#FF5A4F; --halo:rgba(255,90,79,0.25); background:#181816; }
     body.dark .leaflet-tile-pane { filter: invert(1) hue-rotate(180deg) brightness(0.82) contrast(0.86) saturate(0.55); }
@@ -169,6 +171,7 @@ export const OSM_LEAFLET_HTML = `<!DOCTYPE html>
         payloadRideMode = payload.rideMode === true;
         payloadSelectedStationId = payload.selectedStationId || null;
         document.body.classList.toggle('dark', payload.isDark === true);
+        document.body.classList.toggle('ride', payloadRideMode);
         if (payload.stations) setStations(payload.stations);
         setUserLocation(payload.userLocation || null);
       }

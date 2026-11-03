@@ -59,9 +59,9 @@ export const MapStationsFilterSheet = memo(function MapStationsFilterSheet({
               accessibilityLabel="Show Empty Stations"
               value={showEmptyStations}
               onValueChange={onToggleShowEmptyStations}
-              trackColor={{ false: c.line, true: c.accent }}
+              trackColor={{ false: c.muted, true: c.accent }}
               thumbColor={c.surface}
-              ios_backgroundColor={c.line}
+              ios_backgroundColor={c.muted}
             />
           </View>
 

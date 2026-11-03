@@ -94,10 +94,12 @@ export default function AccountScreen() {
   } = useAccountScreenData(user?.id);
 
   const displayName = profile?.name?.trim() || user?.email?.trim() || 'Rider';
-  const avatarLetter = useMemo(
-    () => (displayName.trim().charAt(0) || '?').toUpperCase(),
-    [displayName]
-  );
+  const avatarLetter = useMemo(() => {
+    const words = displayName.trim().split(/\s+/).filter(Boolean);
+    const first = words[0]?.charAt(0) ?? '?';
+    const last = words.length > 1 ? words[words.length - 1].charAt(0) : '';
+    return `${first}${last}`.toUpperCase();
+  }, [displayName]);
   const emailLine = profile?.email ?? user?.email ?? '';
   const phoneLine = profile?.phone_number ?? null;
 
@@ -343,7 +345,7 @@ export default function AccountScreen() {
           visible={showProfile}>
           <SettingsRow
             title="Ride history"
-            subtitle={`${rides.length} trips`}
+            subtitle={`${rides.length} ${rides.length === 1 ? 'trip' : 'trips'}`}
             colors={rowColors}
             onPress={comingSoon('Ride history', 'Export and filters will live here.')}
             isFirst
