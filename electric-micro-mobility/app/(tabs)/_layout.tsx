@@ -1,68 +1,38 @@
-import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { Redirect, Tabs, type Href } from 'expo-router';
 import React, { useCallback } from 'react';
 import { ActivityIndicator, StyleSheet, type ColorValue } from 'react-native';
 
 import { PillTabBar, type BottomTabBarProps } from '@/components/pill-tab-bar';
 import { ThemedView } from '@/components/themed-view';
-import { Colors, LoaderAccent } from '@/constants/theme';
+import { ChatIcon, HoldIcon, PersonIcon, RouteIcon, TicketIcon } from '@/components/wayfinder/icons';
+import { LoaderAccent } from '@/constants/theme';
 import { useAuth } from '@/contexts/auth-context';
-import { useColorScheme } from '@/hooks/use-color-scheme';
 
 /** Expo Router 58 sets the starting tab here instead of on `<Tabs>`. */
 export const unstable_settings = { anchor: 'wallet' };
 
 type TabIconProps = { color: ColorValue; size: number };
 
-/** React Native 0.88's `ColorValue` includes `null` and numbers, which icon colors don't accept. */
-const iconColor = (color: ColorValue) => (color == null || typeof color === 'number' ? undefined : color);
-
 function WalletTabIcon({ color, size }: TabIconProps) {
-  return <MaterialIcons name="account-balance-wallet" size={size} color={iconColor(color)} />;
+  return <TicketIcon color={color} size={size} />;
 }
 function ReservationsTabIcon({ color, size }: TabIconProps) {
-  return <MaterialIcons name="event-note" size={size} color={iconColor(color)} />;
+  return <HoldIcon color={color} size={size} />;
 }
 function MapTabIcon({ color, size }: TabIconProps) {
-  return <MaterialIcons name="map" size={size + 4} color={iconColor(color)} />;
+  return <RouteIcon color={color} size={size} />;
 }
 function SupportTabIcon({ color, size }: TabIconProps) {
-  return <MaterialIcons name="support-agent" size={size} color={iconColor(color)} />;
+  return <ChatIcon color={color} size={size} />;
 }
 function AccountTabIcon({ color, size }: TabIconProps) {
-  return <MaterialIcons name="person" size={size} color={iconColor(color)} />;
+  return <PersonIcon color={color} size={size} />;
 }
 
-export default function TabLayout() {
-  const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme ?? 'light'];
-  const { user, loading, configured } = useAuth();
-  const headerBg = colorScheme === 'dark' ? colors.background : '#F9F9F9';
+const screenOptions = { headerShown: false };
 
-  const screenOptions = useCallback(
-    ({ route }: { route: { name: string } }) => ({
-      headerShown: true,
-      headerStyle: {
-        backgroundColor: headerBg,
-      },
-      headerShadowVisible: false,
-      headerTitleStyle: {
-        fontWeight: route.name === 'account' || route.name === 'support' ? ('800' as const) : ('700' as const),
-        fontSize:
-          route.name === 'wallet'
-            ? 28
-            : route.name === 'account' || route.name === 'support'
-              ? 26
-              : 20,
-        letterSpacing: route.name === 'account' || route.name === 'support' ? -0.25 : 0,
-        ...(route.name === 'account' || route.name === 'support'
-          ? { color: colorScheme === 'dark' ? '#FFFFFF' : '#111111' }
-          : {}),
-      },
-      headerTitleAlign: 'left' as const,
-    }),
-    [colorScheme, headerBg]
-  );
+export default function TabLayout() {
+  const { user, loading, configured } = useAuth();
 
   // React Navigation expects `tabBar` to be a plain function — `React.memo(PillTabBar)` is not typeof "function".
   const renderTabBar = useCallback((props: BottomTabBarProps) => <PillTabBar {...props} />, []);
@@ -82,10 +52,10 @@ export default function TabLayout() {
   return (
     <Tabs screenOptions={screenOptions} tabBar={renderTabBar}>
       <Tabs.Screen
-        name="wallet"
+        name="map"
         options={{
-          title: 'Wallet',
-          tabBarIcon: WalletTabIcon,
+          title: 'Map',
+          tabBarIcon: MapTabIcon,
         }}
       />
       <Tabs.Screen
@@ -96,10 +66,10 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="map"
+        name="wallet"
         options={{
-          title: 'Map',
-          tabBarIcon: MapTabIcon,
+          title: 'Wallet',
+          tabBarIcon: WalletTabIcon,
         }}
       />
       <Tabs.Screen

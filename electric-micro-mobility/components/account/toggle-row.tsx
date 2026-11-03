@@ -1,13 +1,11 @@
-import { Ionicons } from '@expo/vector-icons';
 import { StyleSheet, Switch, Text, View } from 'react-native';
 
-import { ACCENT } from '@/components/account/account-theme';
+import { FontFamily } from '@/constants/theme';
+import { useWayfinder } from '@/hooks/use-wayfinder';
 
 export type ToggleRowProps = {
   title: string;
   subtitle?: string;
-  icon?: keyof typeof Ionicons.glyphMap;
-  iconColor?: string;
   value: boolean;
   onValueChange: (next: boolean) => void;
   visible?: boolean;
@@ -25,8 +23,6 @@ export type ToggleRowProps = {
 export function ToggleRow({
   title,
   subtitle,
-  icon,
-  iconColor,
   value,
   onValueChange,
   visible = true,
@@ -35,16 +31,12 @@ export function ToggleRow({
   divider = true,
   colors,
 }: ToggleRowProps) {
+  const { c } = useWayfinder();
   if (!visible) return null;
 
   return (
     <View>
       <View style={[styles.row, { backgroundColor: 'transparent' }]}>
-        {icon ? (
-          <View style={[styles.iconCircle, { backgroundColor: `${iconColor ?? ACCENT}18` }]}>
-            <Ionicons name={icon} size={18} color={iconColor ?? ACCENT} />
-          </View>
-        ) : null}
         <View style={styles.textCol}>
           <Text style={[styles.title, { color: colors.text }]} numberOfLines={2}>
             {title}
@@ -59,9 +51,10 @@ export function ToggleRow({
           value={value}
           onValueChange={onValueChange}
           disabled={disabled}
-          trackColor={{ false: 'rgba(120,120,128,0.28)', true: 'rgba(255, 75, 65, 0.45)' }}
-          thumbColor={value ? ACCENT : '#f4f3f4'}
-          ios_backgroundColor="rgba(120,120,128,0.28)"
+          trackColor={{ false: c.muted, true: c.accent }}
+          thumbColor={c.surface}
+          ios_backgroundColor={c.muted}
+          accessibilityLabel={title}
         />
       </View>
       {divider && !isLast ? (
@@ -75,34 +68,27 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 14,
+    paddingVertical: 11,
+    paddingHorizontal: 16,
     gap: 12,
-  },
-  iconCircle: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
+    minHeight: 48,
   },
   textCol: {
     flex: 1,
     minWidth: 0,
-    gap: 3,
+    gap: 2,
     paddingRight: 8,
   },
   title: {
+    fontFamily: FontFamily.semibold,
     fontSize: 15,
-    fontWeight: '600',
   },
   subtitle: {
+    fontFamily: FontFamily.regular,
     fontSize: 13,
-    fontWeight: '500',
-    opacity: 0.9,
   },
   hairline: {
-    height: StyleSheet.hairlineWidth,
-    marginLeft: 62,
+    height: 1,
+    marginHorizontal: 16,
   },
 });

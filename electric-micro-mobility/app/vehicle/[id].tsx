@@ -1,36 +1,26 @@
-import * as Location from 'expo-location';
-import { router, Stack, useLocalSearchParams, type Href } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
+import * as Location from 'expo-location';
+import { router, useLocalSearchParams, type Href } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, Image, Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Alert, Image, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ScanToRideModal } from '@/components/scan-to-ride-modal';
-import { ThemedText } from '@/components/themed-text';
 import { VehicleDetailSkeleton } from '@/components/screen-skeletons';
-import { ThemedView } from '@/components/themed-view';
+import { ScanIcon } from '@/components/wayfinder/icons';
+import { BackButton, Button, Dialog, StatusPill } from '@/components/wayfinder/ui';
+import { FontFamily, Type } from '@/constants/theme';
 import { useAuth } from '@/contexts/auth-context';
-import { useColorScheme } from '@/hooks/use-color-scheme';
+import { useWayfinder } from '@/hooks/use-wayfinder';
 import {
   createReservation,
   fetchReservationsForUser,
   fetchVehicleDetails,
-  formatUnlockRateLine,
   startRide,
   type VehicleWithState,
 } from '@/lib/mobility-api';
-import {
-  estimateRangeKm,
-  getVehicleHeroBlobGradient,
-  getVehicleImageSelection,
-  getVehicleVisual,
-  vehicleKindFromDbType,
-} from '@/lib/vehicle-image-map';
+import { estimateRangeKm, getVehicleImageSelection, getVehicleVisual, vehicleKindFromDbType } from '@/lib/vehicle-image-map';
 import type { ReservationRow, RidePricingCatalog } from '@/types/entities';
-
-const RED_ACCENT = '#FF4B41';
-const GRADIENT_RED = '#D90429';
-const GRADIENT_BLACK = '#11181C';
 
 type AvailabilityState = 'available' | 'reserved' | 'in_use' | 'maintenance' | 'offline' | 'unknown';
 
@@ -69,8 +59,8 @@ function isReservationStillActive(row: ReservationRow): boolean {
 
 export default function VehicleDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
+  const { c } = useWayfinder();
+  const insets = useSafeAreaInsets();
   const { user } = useAuth();
   const [vehicle, setVehicle] = useState<VehicleWithState | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -117,9 +107,7 @@ export default function VehicleDetailScreen() {
   const availability = normalizeAvailability(v?.status);
   const reservedByCurrentUser = availability === 'reserved' && !!myReservation;
   const rangeKm = estimateRangeKm(v?.type ?? null, vehicle?.battery_level ?? null);
-  const unlockLine =
-    formatUnlockRateLine(pricingCatalog?.[vehicleKindFromDbType(v?.type ?? null)] ?? null) ?? null;
-  const blobGradient = getVehicleHeroBlobGradient(visual.kind, isDark);
+  const rate = pricingCatalog?.[vehicleKindFromDbType(v?.type ?? null)] ?? null;
   const isReserveLoading = !!id && reserveLoadingVehicleId === id;
   const actionBusy = startRideBusy || isReserveLoading;
   const batteryRounded =
@@ -144,29 +132,19 @@ export default function VehicleDetailScreen() {
   const reserveLabel = reservedByCurrentUser
     ? 'Reserved by you'
     : availability === 'reserved'
-      ? 'Reservation unavailable'
+      ? 'Unavailable'
       : availability === 'available'
-        ? 'Hold for 15 min'
-        : 'Cannot reserve now';
+        ? 'Reserve'
+        : 'Cannot reserve';
 
   const statusPill = useMemo(() => {
-    if (reservedByCurrentUser) {
-      return { label: 'Reserved by you', bg: 'rgba(27,67,50,0.2)', color: isDark ? '#8ED1A2' : '#1B4332' };
-    }
-    if (availability === 'available') {
-      return { label: 'Available', bg: 'rgba(27,67,50,0.18)', color: isDark ? '#9FE3B2' : '#1B4332' };
-    }
-    if (availability === 'reserved') {
-      return { label: 'Reserved', bg: 'rgba(217,4,41,0.2)', color: isDark ? '#FF8A98' : '#D90429' };
-    }
-    if (availability === 'in_use') {
-      return { label: 'In use', bg: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(17,24,28,0.12)', color: isDark ? '#ECEDEE' : '#11181C' };
-    }
-    if (availability === 'maintenance') {
-      return { label: 'Maintenance', bg: 'rgba(245,159,0,0.2)', color: isDark ? '#FFD47A' : '#9C6B00' };
-    }
-    return { label: 'Unavailable', bg: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(17,24,28,0.12)', color: isDark ? '#D0D5DA' : '#687076' };
-  }, [availability, isDark, reservedByCurrentUser]);
+    if (reservedByCurrentUser) return { label: 'Reserved by you', color: c.success };
+    if (availability === 'available') return { label: 'Available', color: c.success };
+    if (availability === 'reserved') return { label: 'Reserved', color: c.accentText };
+    if (availability === 'in_use') return { label: 'In use', color: c.text };
+    if (availability === 'maintenance') return { label: 'Maintenance', color: c.warning };
+    return { label: 'Unavailable', color: c.muted };
+  }, [availability, c, reservedByCurrentUser]);
 
   async function onStartRide() {
     if (!user || !vehicle || !id) return;
@@ -200,16 +178,13 @@ export default function VehicleDetailScreen() {
 
   async function onReserve() {
     if (!user || !id) return;
-    console.log('[VehicleDetail] reserve button clicked', { vehicleId: id, userId: user.id });
     setReserveLoadingVehicleId(id);
-    console.log('[VehicleDetail] reserve loading started', { loadingVehicleId: id });
     try {
       const { data, error: err } = await createReservation(user.id, id);
       if (err) {
         Alert.alert('Reservation failed', err.message);
         return;
       }
-      console.log('[VehicleDetail] reserve success response', { vehicleId: id, data });
       const backendMessage = data?.message?.trim();
       const successMessage = backendMessage || 'Your vehicle has been reserved successfully.';
       const reservationsRes = await fetchReservationsForUser(user.id);
@@ -223,7 +198,6 @@ export default function VehicleDetailScreen() {
       setMyReservation(latestMine ?? null);
       setReservationSuccessMessage(successMessage);
       await load();
-      console.log('[VehicleDetail] reservation success modal opening', { vehicleId: id, message: successMessage });
       setReservationSuccessVisible(true);
     } finally {
       setReserveLoadingVehicleId((current) => (current === id ? null : current));
@@ -231,410 +205,166 @@ export default function VehicleDetailScreen() {
   }
 
   function onReservationSuccessOk() {
-    const reservationsRoute = '/(tabs)/reservations' as Href;
-    console.log('[VehicleDetail] reservation success modal OK pressed', { vehicleId: id });
-    console.log('[VehicleDetail] navigating to reservations route', { route: reservationsRoute });
     setReservationSuccessVisible(false);
-    router.push(reservationsRoute);
+    router.push('/(tabs)/reservations' as Href);
   }
 
   if (loading) {
-    return <VehicleDetailSkeleton pageBg={isDark ? '#0F1112' : '#F6F7F8'} />;
+    return <VehicleDetailSkeleton pageBg={c.bg} />;
   }
 
   if (error || !vehicle) {
     return (
-      <ThemedView style={styles.body}>
-        <Stack.Screen options={{ title: 'Vehicle' }} />
-        <ThemedText type="subtitle">Vehicle not found</ThemedText>
-        <ThemedText style={styles.muted}>{error ?? 'Unknown error'}</ThemedText>
-      </ThemedView>
+      <View style={[styles.flex, styles.notFound, { backgroundColor: c.bg, paddingTop: insets.top + 12 }]}>
+        <BackButton onPress={() => router.back()} />
+        <Text style={[Type.detailTitle, { color: c.text }]}>Vehicle not found</Text>
+        <Text style={[styles.note, { color: c.muted }]}>{error ?? 'Unknown error'}</Text>
+      </View>
     );
   }
 
   return (
-    <ThemedView style={[styles.body, { backgroundColor: isDark ? '#0F1112' : '#F6F7F8' }]}>
-      <Stack.Screen options={{ title: 'Vehicle' }} />
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        <LinearGradient
-          colors={isDark ? ['rgba(217,4,41,0.22)', 'rgba(17,24,28,0.16)'] : ['rgba(255,75,65,0.14)', 'rgba(17,24,28,0.05)']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={[styles.heroCard, { borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(17,24,28,0.08)' }]}>
-          <View style={styles.heroHeader}>
-            <View style={styles.heroTitleBlock}>
-              <ThemedText style={styles.vehicleTitle}>{visual.title}</ThemedText>
-              <ThemedText style={styles.vehicleSubtitle}>{visual.subtitle}</ThemedText>
-            </View>
-            <View style={[styles.statusChip, { backgroundColor: statusPill.bg }]}>
-              <ThemedText style={[styles.statusChipText, { color: statusPill.color }]}>{statusPill.label}</ThemedText>
-            </View>
-          </View>
-
-          <View style={styles.heroImageWrap}>
-            <LinearGradient
-              colors={blobGradient}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.heroBlob}
-            />
-            {imageSelection.source ? (
-              <Image source={imageSelection.source} resizeMode="contain" style={styles.heroImage} />
-            ) : (
-              <View style={styles.genericImageFallback}>
-                <Ionicons name="bicycle-outline" size={40} color={isDark ? '#ECEDEE' : '#11181C'} />
-                <ThemedText style={styles.genericImageFallbackText}>Generic vehicle</ThemedText>
-              </View>
-            )}
-          </View>
-        </LinearGradient>
-
-        <View
-          style={[
-            styles.infoCard,
-            {
-              backgroundColor: isDark ? '#17191A' : '#FFFFFF',
-              borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(17,24,28,0.08)',
-            },
-          ]}>
-          <ThemedText style={styles.infoSectionTitle}>Vehicle Information</ThemedText>
-          <View style={styles.infoGrid}>
-            <View style={styles.infoCell}>
-              <ThemedText style={styles.infoLabel}>Type</ThemedText>
-              <ThemedText style={styles.infoValue}>{(v?.type ?? 'Unknown').toUpperCase()}</ThemedText>
-            </View>
-            <View style={styles.infoCell}>
-              <ThemedText style={styles.infoLabel}>Vehicle ID</ThemedText>
-              <ThemedText style={styles.infoValue}>#{toShortId(vehicle.vehicle_id)}</ThemedText>
-            </View>
-            <View style={styles.infoCell}>
-              <ThemedText style={styles.infoLabel}>QR code</ThemedText>
-              <ThemedText style={styles.infoValue}>{v?.qr_code ?? 'Not set'}</ThemedText>
-            </View>
-            <View style={styles.infoCell}>
-              <ThemedText style={styles.infoLabel}>Battery</ThemedText>
-              <ThemedText style={styles.infoValue}>
-                {batteryRounded == null ? 'N/A' : `${batteryRounded}%`}
-              </ThemedText>
-            </View>
-            <View style={styles.infoCell}>
-              <ThemedText style={styles.infoLabel}>Estimated range</ThemedText>
-              <ThemedText style={styles.infoValue}>{rangeKm == null ? 'N/A' : `${rangeKm} km`}</ThemedText>
-            </View>
-            <View style={styles.infoCell}>
-              <ThemedText style={styles.infoLabel}>Ride rate</ThemedText>
-              <ThemedText style={styles.infoValue}>{unlockLine ?? 'Not available'}</ThemedText>
-            </View>
-            <View style={styles.infoCell}>
-              <ThemedText style={styles.infoLabel}>Last update</ThemedText>
-              <ThemedText style={styles.infoValue}>{formatTimestamp(vehicle.last_updated ?? v?.last_gps_at)}</ThemedText>
-            </View>
-          </View>
-          {myReservation?.expires_at ? (
-            <View style={[styles.myReservationBadge, { backgroundColor: 'rgba(27,67,50,0.12)' }]}>
-              <Ionicons name="time-outline" size={16} color="#1B4332" />
-              <ThemedText style={styles.myReservationText}>
-                Your reservation is active until {formatTimestamp(myReservation.expires_at)}
-              </ThemedText>
-            </View>
-          ) : null}
-          {lowBattery ? (
-            <View style={[styles.warningBadge, { backgroundColor: 'rgba(245,159,0,0.16)' }]}>
-              <Ionicons name="warning-outline" size={16} color="#9C6B00" />
-              <ThemedText style={styles.warningText}>Low battery. Plan a shorter trip.</ThemedText>
-            </View>
-          ) : null}
+    <View style={[styles.flex, { backgroundColor: c.bg }]}>
+      <ScrollView
+        contentContainerStyle={[styles.content, { paddingTop: insets.top + 12, paddingBottom: 24 }]}
+        showsVerticalScrollIndicator={false}>
+        <View style={styles.topRow}>
+          <BackButton onPress={() => router.back()} />
+          <StatusPill label={statusPill.label} color={statusPill.color} />
         </View>
 
-        <View style={styles.actions}>
-          <Pressable
-            style={({ pressed }) => [
-              styles.primary,
-              {
-                backgroundColor: RED_ACCENT,
-                opacity: pressed || actionBusy || !primaryActionEnabled ? 0.86 : 1,
-              },
-            ]}
-            onPress={() => setScanVisible(true)}
-            disabled={actionBusy || !primaryActionEnabled}>
-            {startRideBusy ? (
-              <ActivityIndicator color="#FFFFFF" />
-            ) : (
-              <View style={styles.primaryInner}>
-                <Ionicons name="scan-outline" size={18} color="#FFFFFF" />
-                <ThemedText style={styles.primaryText}>{primaryLabel}</ThemedText>
-              </View>
-            )}
-          </Pressable>
-
-          <Pressable
-            style={({ pressed }) => [
-              styles.secondary,
-              {
-                borderColor: RED_ACCENT,
-                backgroundColor: isDark ? 'rgba(255,255,255,0.02)' : '#FFFFFF',
-                opacity: pressed || actionBusy || !reserveActionEnabled ? 0.82 : 1,
-              },
-            ]}
-            onPress={onReserve}
-            disabled={actionBusy || !reserveActionEnabled}>
-            {isReserveLoading ? (
-              <ActivityIndicator color={RED_ACCENT} />
-            ) : (
-              <ThemedText style={[styles.secondaryText, { color: RED_ACCENT }]}>{reserveLabel}</ThemedText>
-            )}
-          </Pressable>
+        <View style={styles.hero}>
+          <View style={[styles.circle, { backgroundColor: c.photoTile }]} />
+          {imageSelection.source ? (
+            <Image source={imageSelection.source} resizeMode="contain" style={styles.image} accessibilityLabel={visual.title} />
+          ) : (
+            <View style={styles.imageFallback}>
+              <Ionicons name="bicycle-outline" size={64} color="#121212" />
+            </View>
+          )}
+          <View>
+            <Text style={[Type.label, { color: c.muted }]}>BATTERY</Text>
+            <Text style={[styles.battery, { color: c.text }]}>
+              {batteryRounded ?? '—'}
+              {batteryRounded != null ? <Text style={[styles.percent, { color: c.accent }]}>%</Text> : null}
+            </Text>
+            <View style={[styles.track, { backgroundColor: c.line }]}>
+              <View
+                style={[
+                  styles.fill,
+                  { width: `${batteryRounded ?? 0}%`, backgroundColor: lowBattery ? c.accentText : c.success },
+                ]}
+              />
+            </View>
+          </View>
         </View>
+
+        <Text style={[Type.label, { color: c.accentText }]}>{(v?.type ?? 'Unknown').toUpperCase()}</Text>
+        <Text style={[styles.name, { color: c.text }]} numberOfLines={2}>
+          {v?.model?.trim() || visual.title}
+        </Text>
+
+        <View style={[styles.grid, { borderTopColor: c.text }]}>
+          <View style={[styles.cell, { borderBottomColor: c.line }]}>
+            <Text style={[Type.secondary, { color: c.muted }]}>Estimated range</Text>
+            <Text style={[styles.cellValue, { color: c.text }]}>{rangeKm == null ? 'N/A' : `${rangeKm} km`}</Text>
+          </View>
+          <View style={[styles.cell, styles.cellRight, { borderBottomColor: c.line, borderLeftColor: c.line }]}>
+            <Text style={[Type.secondary, { color: c.muted }]}>Ride rate</Text>
+            <Text style={[styles.cellValue, { color: c.text }]}>
+              {rate ? `$${rate.price_per_minute.toFixed(2)}` : 'N/A'}
+              {rate ? <Text style={[styles.perMin, { color: c.muted }]}>/min</Text> : null}
+            </Text>
+          </View>
+          <View style={[styles.cell, { borderBottomColor: c.line }]}>
+            <Text style={[Type.secondary, { color: c.muted }]}>Vehicle ID</Text>
+            <Text style={[styles.cellText, { color: c.text }]}>#{toShortId(vehicle.vehicle_id)}</Text>
+          </View>
+          <View style={[styles.cell, styles.cellRight, { borderBottomColor: c.line, borderLeftColor: c.line }]}>
+            <Text style={[Type.secondary, { color: c.muted }]}>QR code</Text>
+            <Text style={[styles.cellText, { color: c.text }]} numberOfLines={1}>
+              {v?.qr_code ?? 'Not set'}
+            </Text>
+          </View>
+        </View>
+
+        <Text style={[styles.note, { color: c.muted }]}>
+          {rate ? `$${rate.initial_fee.toFixed(2)} unlock fee · ` : ''}Last update{' '}
+          {formatTimestamp(vehicle.last_updated ?? v?.last_gps_at)}
+        </Text>
+        {myReservation?.expires_at ? (
+          <Text style={[styles.notice, { color: c.success }]}>
+            Your reservation is active until {formatTimestamp(myReservation.expires_at)}
+          </Text>
+        ) : null}
+        {lowBattery ? (
+          <Text style={[styles.notice, { color: c.warning }]}>Low battery. Plan a shorter trip.</Text>
+        ) : null}
       </ScrollView>
+
+      <View style={[styles.actions, { paddingBottom: insets.bottom + 16 }]}>
+        <Button
+          label={reserveLabel}
+          variant="secondary"
+          onPress={() => void onReserve()}
+          loading={isReserveLoading}
+          disabled={actionBusy || !reserveActionEnabled}
+          height={58}
+          style={styles.reserve}
+        />
+        <Button
+          label={primaryLabel}
+          onPress={() => setScanVisible(true)}
+          loading={startRideBusy}
+          disabled={actionBusy || !primaryActionEnabled}
+          height={58}
+          leading={primaryActionEnabled ? <ScanIcon color={c.onAccent} /> : undefined}
+          style={styles.scan}
+        />
+      </View>
 
       <ScanToRideModal
         visible={scanVisible}
-        accentColor={RED_ACCENT}
-        isDark={isDark}
         busy={startRideBusy}
         expectedPayloads={[...(v?.qr_code ? [v.qr_code] : []), vehicle.vehicle_id]}
         onClose={() => setScanVisible(false)}
         onScanConfirmed={onStartRide}
       />
 
-      <Modal visible={reservationSuccessVisible} transparent animationType="fade" onRequestClose={() => setReservationSuccessVisible(false)}>
-        <View style={styles.successOverlay}>
-          <View
-            style={[
-              styles.successCard,
-              {
-                backgroundColor: isDark ? '#151718' : '#FFFFFF',
-                borderColor: isDark ? 'rgba(255,255,255,0.12)' : 'rgba(17,24,28,0.08)',
-              },
-            ]}>
-            <LinearGradient colors={[GRADIENT_RED, GRADIENT_BLACK]} style={styles.successIconWrap}>
-              <Ionicons name="checkmark" size={28} color="#FFFFFF" />
-            </LinearGradient>
-            <ThemedText style={styles.successTitle}>Reserved successfully</ThemedText>
-            <ThemedText style={styles.successSubtitle}>{reservationSuccessMessage}</ThemedText>
-            <Pressable style={styles.successButton} onPress={onReservationSuccessOk}>
-              <ThemedText style={styles.successButtonText}>OK</ThemedText>
-            </Pressable>
-          </View>
-        </View>
-      </Modal>
-    </ThemedView>
+      <Dialog
+        visible={reservationSuccessVisible}
+        title="Reserved successfully"
+        message={reservationSuccessMessage}
+        onRequestClose={() => setReservationSuccessVisible(false)}
+        actions={[{ label: 'OK', onPress: onReservationSuccessOk }]}
+      />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  body: { flex: 1 },
-  scrollContent: {
-    padding: 16,
-    gap: 14,
-    paddingBottom: 28,
-  },
-  muted: { opacity: 0.8, fontSize: 15, lineHeight: 22 },
-  heroCard: {
-    borderRadius: 24,
-    borderWidth: 1,
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 14,
-    gap: 14,
-  },
-  heroHeader: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    gap: 12,
-  },
-  heroTitleBlock: {
-    flex: 1,
-    gap: 4,
-  },
-  vehicleTitle: {
-    fontSize: 24,
-    fontWeight: '800',
-    letterSpacing: -0.2,
-  },
-  vehicleSubtitle: {
-    opacity: 0.72,
-    fontSize: 14,
-    lineHeight: 20,
-  },
-  statusChip: {
-    borderRadius: 999,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-  },
-  statusChipText: {
-    fontSize: 11,
-    fontWeight: '800',
-    letterSpacing: 0.4,
-    textTransform: 'uppercase',
-  },
-  heroImageWrap: {
-    height: 180,
-    alignItems: 'center',
-    justifyContent: 'center',
-    position: 'relative',
-  },
-  heroBlob: {
-    position: 'absolute',
-    width: 180,
-    height: 180,
-    borderRadius: 90,
-  },
-  heroImage: {
-    width: 220,
-    height: 168,
-  },
-  genericImageFallback: {
-    width: 180,
-    height: 160,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(17,24,28,0.1)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    backgroundColor: 'rgba(17,24,28,0.04)',
-  },
-  genericImageFallbackText: {
-    fontSize: 12,
-    opacity: 0.72,
-    fontWeight: '600',
-  },
-  infoCard: {
-    borderRadius: 20,
-    borderWidth: 1,
-    padding: 16,
-    gap: 12,
-  },
-  infoSectionTitle: {
-    fontSize: 16,
-    fontWeight: '800',
-    letterSpacing: 0.1,
-  },
-  infoGrid: {
-    gap: 10,
-  },
-  infoCell: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 10,
-  },
-  infoLabel: {
-    fontSize: 12,
-    fontWeight: '700',
-    opacity: 0.7,
-    textTransform: 'uppercase',
-    letterSpacing: 0.45,
-  },
-  infoValue: {
-    flexShrink: 1,
-    fontSize: 14,
-    fontWeight: '700',
-    textAlign: 'right',
-  },
-  myReservationBadge: {
-    borderRadius: 12,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  myReservationText: {
-    color: '#1B4332',
-    fontSize: 12,
-    fontWeight: '700',
-    flexShrink: 1,
-  },
-  warningBadge: {
-    borderRadius: 12,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  warningText: {
-    color: '#9C6B00',
-    fontSize: 12,
-    fontWeight: '700',
-    flexShrink: 1,
-  },
-  actions: { marginTop: 2, gap: 12 },
-  primary: {
-    paddingVertical: 14,
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: 52,
-  },
-  primaryInner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  primaryText: { color: '#fff', fontWeight: '700', fontSize: 16 },
-  secondary: {
-    paddingVertical: 14,
-    borderRadius: 14,
-    alignItems: 'center',
-    borderWidth: 1,
-    minHeight: 52,
-  },
-  secondaryText: {
-    fontWeight: '700',
-    fontSize: 15,
-  },
-  successOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(8,12,14,0.52)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 20,
-  },
-  successCard: {
-    width: '100%',
-    maxWidth: 360,
-    borderRadius: 20,
-    borderWidth: 1,
-    padding: 20,
-    alignItems: 'center',
-    gap: 12,
-  },
-  successIconWrap: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  successTitle: {
-    fontSize: 20,
-    fontWeight: '800',
-    textAlign: 'center',
-    letterSpacing: -0.2,
-  },
-  successSubtitle: {
-    opacity: 0.75,
-    fontSize: 14,
-    lineHeight: 20,
-    textAlign: 'center',
-  },
-  successButton: {
-    marginTop: 4,
-    borderRadius: 12,
-    backgroundColor: RED_ACCENT,
-    minHeight: 44,
-    minWidth: 136,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 16,
-  },
-  successButtonText: {
-    color: '#FFFFFF',
-    fontWeight: '800',
-    fontSize: 15,
-  },
+  flex: { flex: 1 },
+  notFound: { paddingHorizontal: 24, gap: 12 },
+  content: { paddingHorizontal: 24 },
+  topRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  hero: { height: 276, justifyContent: 'center' },
+  circle: { position: 'absolute', right: -74, top: 2, width: 270, height: 270, borderRadius: 135 },
+  image: { position: 'absolute', right: -24, top: 0, width: 270, height: 270 },
+  imageFallback: { position: 'absolute', right: 20, top: 100 },
+  battery: { fontFamily: FontFamily.display, fontSize: 112, lineHeight: 112, letterSpacing: -5 },
+  percent: { fontSize: 34, letterSpacing: 0 },
+  track: { width: 120, height: 6, borderRadius: 3, marginTop: 8, overflow: 'hidden' },
+  fill: { height: 6, borderRadius: 3 },
+  name: { fontFamily: FontFamily.display, fontSize: 40, lineHeight: 44, letterSpacing: -1.6, marginTop: 2 },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', marginTop: 16, borderTopWidth: 1.5 },
+  cell: { width: '50%', paddingVertical: 12, borderBottomWidth: 1 },
+  cellRight: { borderLeftWidth: 1, paddingLeft: 14 },
+  cellValue: { fontFamily: FontFamily.display, fontSize: 24, lineHeight: 30 },
+  cellText: { fontFamily: FontFamily.bold, fontSize: 16, marginTop: 2 },
+  perMin: { fontFamily: FontFamily.semibold, fontSize: 14 },
+  note: { fontFamily: FontFamily.regular, fontSize: 13, lineHeight: 18, marginTop: 12 },
+  notice: { fontFamily: FontFamily.semibold, fontSize: 14, marginTop: 8 },
+  actions: { flexDirection: 'row', gap: 10, paddingHorizontal: 24, paddingTop: 12 },
+  reserve: { flex: 1 },
+  scan: { flex: 1.5 },
 });

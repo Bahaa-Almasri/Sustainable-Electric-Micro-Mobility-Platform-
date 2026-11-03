@@ -8,7 +8,7 @@ import type { OsmMapViewProps, OsmMapViewRef } from '@/components/osm-map-types'
  * Web: `react-native-webview` is not supported on RN-web; use an iframe with the same Leaflet document.
  */
 export const OsmMapView = forwardRef<OsmMapViewRef, OsmMapViewProps>(function OsmMapView(
-  { style, region, stations, userLocation, onStationPress, stationMarkerMode = 'browse' },
+  { style, region, stations, userLocation, onStationPress, stationMarkerMode = 'browse', isDark = false, selectedStationId = null },
   ref
 ) {
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
@@ -23,12 +23,12 @@ export const OsmMapView = forwardRef<OsmMapViewRef, OsmMapViewProps>(function Os
   const pushPayload = useCallback(
     (r: typeof region, s: typeof stations, loc: typeof userLocation, fitCamera: boolean) => {
       if (!loadedRef.current) return;
-      const payload = serializeMapPayload(r, s, loc, { fitCamera, stationMarkerMode, rideMode });
+      const payload = serializeMapPayload(r, s, loc, { fitCamera, stationMarkerMode, rideMode, isDark, selectedStationId });
       const win = iframeRef.current?.contentWindow;
       if (!win) return;
       win.postMessage({ __osmUpdate: payload }, '*');
     },
-    [stationMarkerMode, rideMode]
+    [stationMarkerMode, rideMode, isDark, selectedStationId]
   );
 
   useImperativeHandle(

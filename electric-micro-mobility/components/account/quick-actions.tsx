@@ -1,6 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import { ScrollView, StyleSheet, Text, Pressable, View } from 'react-native';
 
+import { FontFamily } from '@/constants/theme';
+
 import { cardShadow } from '@/components/account/account-theme';
 
 export type QuickAction = {
@@ -67,7 +69,7 @@ const styles = StyleSheet.create({
   },
   heading: {
     fontSize: 12,
-    fontWeight: '800',
+    fontFamily: FontFamily.bold,
     letterSpacing: 1.1,
     marginLeft: 4,
   },
@@ -95,7 +97,7 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 13,
-    fontWeight: '700',
+    fontFamily: FontFamily.bold,
     letterSpacing: -0.1,
   },
 });

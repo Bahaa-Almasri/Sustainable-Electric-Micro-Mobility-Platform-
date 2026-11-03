@@ -1,85 +1,54 @@
-import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from 'expo-router';
 import { useCallback, useRef, useState } from 'react';
-import {
-  ActivityIndicator,
-  Alert,
-  FlatList,
-  Modal,
-  Platform,
-  Pressable,
-  RefreshControl,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
+import { Alert, KeyboardAvoidingView, Platform, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 
-import { ThemedText } from '@/components/themed-text';
 import { ListScreenSkeleton } from '@/components/screen-skeletons';
-import { Colors, LoaderAccent } from '@/constants/theme';
+import { Button, Card, EmptyNote, Field, PageHeader, SectionTitle, StatusPill } from '@/components/wayfinder/ui';
+import { LoaderAccent, Type } from '@/constants/theme';
 import { useAuth } from '@/contexts/auth-context';
-import { useColorScheme } from '@/hooks/use-color-scheme';
+import { useTabBarSpace, useWayfinder } from '@/hooks/use-wayfinder';
 import { createSupportTicket, fetchSupportTickets } from '@/lib/mobility-api';
 import type { TicketRow } from '@/types/entities';
 
-const PAGE_BG = '#F9F9F9';
-const ON_SURFACE = '#111111';
-const MUTED_TEXT = '#757575';
-const RED_ACCENT = '#FF4B41';
-const INPUT_BORDER = 'rgba(0,0,0,0.08)';
-const CARD_SHADOW = Platform.select({
-  ios: {
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.06,
-    shadowRadius: 10,
-  },
-  android: { elevation: 3 },
-  default: {},
-});
-const MODAL_SHADOW = Platform.select({
-  ios: {
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.12,
-    shadowRadius: 16,
-  },
-  android: { elevation: 16 },
-  default: {},
-});
+function formatDay(iso: string | null): string | null {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+function statusLabel(status: string | null): string {
+  const s = (status ?? '').trim();
+  return s ? s.charAt(0).toUpperCase() + s.slice(1).replace(/_/g, ' ') : '—';
+}
 
 export default function SupportScreen() {
-  const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme ?? 'light'];
-  const isDark = colorScheme === 'dark';
-  const cardBg = isDark ? '#1E2122' : '#FFFFFF';
-  const modalBg = isDark ? colors.background : '#FFFFFF';
-  const inputBorder = isDark ? 'rgba(255,255,255,0.12)' : INPUT_BORDER;
-  const inputBg = isDark ? 'rgba(255,255,255,0.06)' : '#FAFAFA';
-
+  const { c } = useWayfinder();
+  const tabBarSpace = useTabBarSpace();
   const { user } = useAuth();
   const [tickets, setTickets] = useState<TicketRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [open, setOpen] = useState(false);
   const [subject, setSubject] = useState('');
   const [description, setDescription] = useState('');
   const [sending, setSending] = useState(false);
   const screenFocusRef = useRef(false);
 
-  const load = useCallback(async (opts?: { silent?: boolean }) => {
-    const silent = opts?.silent ?? false;
-    if (!user) return;
-    if (!silent) setLoading(true);
-    try {
-      const { data, error } = await fetchSupportTickets(user.id);
-      if (!error && data) setTickets(data);
-      else setTickets([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [user]);
+  const load = useCallback(
+    async (opts?: { silent?: boolean }) => {
+      const silent = opts?.silent ?? false;
+      if (!user) return;
+      if (!silent) setLoading(true);
+      try {
+        const { data, error } = await fetchSupportTickets(user.id);
+        if (!error && data) setTickets(data);
+        else setTickets([]);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [user]
+  );
 
   useFocusEffect(
     useCallback(() => {
@@ -98,6 +67,11 @@ export default function SupportScreen() {
     }
   }, [load]);
 
+  function clearForm() {
+    setSubject('');
+    setDescription('');
+  }
+
   async function submitTicket() {
     if (!user) return;
     if (!subject.trim() || !description.trim()) {
@@ -111,274 +85,99 @@ export default function SupportScreen() {
       Alert.alert('Could not create ticket', error.message);
       return;
     }
-    setOpen(false);
-    setSubject('');
-    setDescription('');
+    clearForm();
     void load({ silent: true });
   }
 
   if (loading && !refreshing) {
-    return <ListScreenSkeleton pageBg={PAGE_BG} cardBg={cardBg} withHeading={false} />;
+    return <ListScreenSkeleton pageBg={c.bg} withHeading={false} />;
   }
 
   return (
-    <View style={[styles.flex, { backgroundColor: PAGE_BG }]}>
-      <View style={styles.toolbar}>
-        <Pressable
-          style={({ pressed }) => [styles.newBtn, pressed && styles.newBtnPressed]}
-          onPress={() => setOpen(true)}
-          accessibilityRole="button"
-          accessibilityLabel="Create new support ticket">
-          <Ionicons name="add-circle-outline" size={20} color="#FFFFFF" />
-          <Text style={styles.newBtnText}>New ticket</Text>
-        </Pressable>
-      </View>
-      <FlatList
-        data={tickets}
-        keyExtractor={(t) => t.ticket_id}
+    <KeyboardAvoidingView
+      style={[styles.flex, { backgroundColor: c.bg }]}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <ScrollView
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={[styles.content, { paddingBottom: tabBarSpace }]}
         refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            tintColor={LoaderAccent}
-            colors={[LoaderAccent]}
-          />
-        }
-        style={{ backgroundColor: PAGE_BG }}
-        ListEmptyComponent={
-          <View style={styles.emptyWrap}>
-            <ThemedText style={styles.empty} lightColor={MUTED_TEXT} darkColor={MUTED_TEXT}>
-              No support tickets yet.
-            </ThemedText>
-          </View>
-        }
-        renderItem={({ item }) => (
-          <View style={[styles.card, { backgroundColor: cardBg }, !isDark && CARD_SHADOW]}>
-            <ThemedText
-              type="defaultSemiBold"
-              style={styles.cardTitle}
-              lightColor={ON_SURFACE}
-              darkColor={colors.text}>
-              {item.subject ?? 'Ticket'}
-            </ThemedText>
-            <ThemedText style={styles.cardBody} lightColor={MUTED_TEXT} darkColor={colors.icon}>
-              {item.description ?? ''}
-            </ThemedText>
-            <View style={[styles.statusPill, isDark && styles.statusPillDark]}>
-              <Text style={[styles.statusText, isDark && styles.statusTextDark]}>
-                {(item.status ?? '—').toUpperCase()}
-              </Text>
-            </View>
-          </View>
-        )}
-        contentContainerStyle={styles.list}
-      />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={LoaderAccent} colors={[LoaderAccent]} />
+        }>
+        <View style={styles.pageHeader}>
+          <PageHeader title="Support" subtitle="Tell us what went wrong." />
+        </View>
 
-      <Modal visible={open} transparent animationType="slide">
-        <Pressable style={styles.modalBackdrop} onPress={() => setOpen(false)}>
-          <Pressable style={[styles.modalCard, { backgroundColor: modalBg }, MODAL_SHADOW]} onPress={() => {}}>
-            <ThemedText
-              type="subtitle"
-              style={styles.modalTitle}
-              lightColor={ON_SURFACE}
-              darkColor={colors.text}>
-              Contact support
-            </ThemedText>
-            <TextInput
-              placeholder="Subject"
-              placeholderTextColor={MUTED_TEXT}
-              value={subject}
-              onChangeText={setSubject}
-              style={[
-                styles.input,
-                {
-                  borderColor: inputBorder,
-                  backgroundColor: inputBg,
-                  color: colors.text,
-                },
-              ]}
-            />
-            <TextInput
-              placeholder="Describe the issue"
-              placeholderTextColor={MUTED_TEXT}
-              value={description}
-              onChangeText={setDescription}
-              multiline
-              numberOfLines={4}
-              style={[
-                styles.input,
-                styles.textArea,
-                {
-                  borderColor: inputBorder,
-                  backgroundColor: inputBg,
-                  color: colors.text,
-                },
-              ]}
-            />
-            <View style={styles.modalRow}>
-              <Pressable
-                style={({ pressed }) => [styles.modalCancel, pressed && styles.modalCancelPressed]}
-                onPress={() => setOpen(false)}>
-                <Text style={[styles.modalCancelText, isDark && styles.modalCancelTextDark]}>Cancel</Text>
-              </Pressable>
-              <Pressable
-                style={({ pressed }) => [
-                  styles.modalOk,
-                  pressed && styles.modalOkPressed,
-                  sending && styles.modalOkDisabled,
-                ]}
-                onPress={submitTicket}
-                disabled={sending}>
-                {sending ? (
-                  <ActivityIndicator color="#FFFFFF" />
-                ) : (
-                  <Text style={styles.modalOkText}>Submit</Text>
-                )}
-              </Pressable>
-            </View>
-          </Pressable>
-        </Pressable>
-      </Modal>
-    </View>
+        <Card style={styles.form}>
+          <SectionTitle title="New ticket" />
+          <Field label="Subject" placeholder="Subject" value={subject} onChangeText={setSubject} style={styles.field} />
+          <Field
+            label="Description"
+            placeholder="Describe the issue"
+            value={description}
+            onChangeText={setDescription}
+            multiline
+            numberOfLines={3}
+            style={styles.field}
+          />
+          <View style={styles.actions}>
+            <Button label="Cancel" variant="secondary" onPress={clearForm} disabled={sending} height={50} radius={16} style={styles.flex} />
+            <Button label="Submit" onPress={() => void submitTicket()} loading={sending} height={50} radius={16} style={styles.submit} />
+          </View>
+        </Card>
+
+        <SectionTitle title="Your tickets" style={styles.section} />
+        {tickets.length === 0 ? (
+          <View style={styles.pad}>
+            <EmptyNote text="No support tickets yet." />
+          </View>
+        ) : (
+          <Card style={styles.list}>
+            {tickets.map((item, i) => {
+              const status = (item.status ?? '').toLowerCase();
+              const done = status === 'resolved' || status === 'closed';
+              const color = done ? c.success : status ? c.warning : c.muted;
+              return (
+                <View key={item.ticket_id} style={[styles.row, i > 0 && { borderTopWidth: 1, borderTopColor: c.line }]}>
+                  <View style={done ? [styles.dot, { backgroundColor: color }] : [styles.dot, styles.ring, { borderColor: color }]} />
+                  <View style={styles.rowText}>
+                    <Text style={[Type.body, { color: c.text }]} numberOfLines={1}>
+                      {item.subject ?? 'Ticket'}
+                    </Text>
+                    {item.description ? (
+                      <Text style={[Type.secondary, { color: c.muted }]} numberOfLines={2}>
+                        {item.description}
+                      </Text>
+                    ) : null}
+                    <Text style={[Type.secondary, { color: c.muted }]} numberOfLines={1}>
+                      #{item.ticket_id.slice(0, 6).toUpperCase()}
+                      {formatDay(item.created_at) ? ` · ${formatDay(item.created_at)}` : ''}
+                    </Text>
+                  </View>
+                  <StatusPill label={statusLabel(item.status)} color={color} />
+                </View>
+              );
+            })}
+          </Card>
+        )}
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
-  toolbar: {
-    paddingHorizontal: 20,
-    paddingTop: 12,
-    paddingBottom: 16,
-    backgroundColor: PAGE_BG,
-  },
-  newBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    alignSelf: 'flex-start',
-    gap: 8,
-    paddingHorizontal: 18,
-    paddingVertical: 12,
-    borderRadius: 999,
-    backgroundColor: RED_ACCENT,
-  },
-  newBtnPressed: {
-    opacity: 0.92,
-  },
-  newBtnText: { color: '#FFFFFF', fontWeight: '700', fontSize: 15, letterSpacing: 0.2 },
-  list: {
-    paddingHorizontal: 20,
-    paddingBottom: 56,
-    gap: 14,
-    backgroundColor: PAGE_BG,
-  },
-  card: {
-    borderRadius: 20,
-    padding: 16,
-    gap: 10,
-  },
-  cardTitle: {
-    fontSize: 16,
-    fontWeight: '800',
-    letterSpacing: 0.2,
-  },
-  cardBody: {
-    fontSize: 14,
-    lineHeight: 20,
-  },
-  statusPill: {
-    alignSelf: 'flex-start',
-    marginTop: 4,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 999,
-    backgroundColor: '#F0F0F0',
-  },
-  statusPillDark: {
-    backgroundColor: 'rgba(255,255,255,0.08)',
-  },
-  statusText: {
-    fontSize: 10,
-    fontWeight: '800',
-    letterSpacing: 0.65,
-    color: MUTED_TEXT,
-  },
-  statusTextDark: {
-    color: '#B0B0B0',
-  },
-  emptyWrap: { paddingVertical: 40, paddingHorizontal: 16 },
-  empty: { textAlign: 'center', fontSize: 14 },
-  modalBackdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.45)',
-    justifyContent: 'flex-end',
-  },
-  modalCard: {
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    paddingHorizontal: 20,
-    paddingTop: 22,
-    paddingBottom: 36,
-    gap: 14,
-  },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: '800',
-    letterSpacing: -0.2,
-    marginBottom: 2,
-  },
-  input: {
-    borderWidth: 1,
-    borderRadius: 14,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    fontSize: 16,
-  },
-  textArea: { minHeight: 120, textAlignVertical: 'top' },
-  modalRow: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    alignItems: 'center',
-    gap: 12,
-    marginTop: 10,
-  },
-  modalCancel: {
-    paddingVertical: 12,
-    paddingHorizontal: 18,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 75, 65, 0.45)',
-    backgroundColor: 'transparent',
-  },
-  modalCancelPressed: {
-    opacity: 0.88,
-  },
-  modalCancelText: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: RED_ACCENT,
-  },
-  modalCancelTextDark: {
-    color: '#FF6B62',
-  },
-  modalOk: {
-    paddingVertical: 12,
-    paddingHorizontal: 22,
-    borderRadius: 999,
-    minWidth: 112,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: RED_ACCENT,
-  },
-  modalOkPressed: {
-    opacity: 0.92,
-  },
-  modalOkDisabled: {
-    opacity: 0.65,
-  },
-  modalOkText: {
-    color: '#FFFFFF',
-    fontWeight: '700',
-    fontSize: 15,
-    letterSpacing: 0.2,
-  },
+  content: { paddingHorizontal: 16, width: '100%', maxWidth: 560, alignSelf: 'center' },
+  pageHeader: { marginHorizontal: -16 },
+  pad: { paddingHorizontal: 8 },
+  form: { borderRadius: 26, padding: 20 },
+  field: { marginTop: 14 },
+  actions: { flexDirection: 'row', gap: 8, marginTop: 16 },
+  submit: { flex: 2 },
+  section: { marginTop: 22, marginBottom: 12, marginHorizontal: 8 },
+  list: { paddingHorizontal: 16 },
+  row: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 14 },
+  dot: { width: 12, height: 12, borderRadius: 6 },
+  ring: { borderWidth: 3 },
+  rowText: { flex: 1, minWidth: 0 },
 });

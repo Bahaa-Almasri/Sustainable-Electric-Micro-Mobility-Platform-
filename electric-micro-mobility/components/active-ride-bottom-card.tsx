@@ -1,102 +1,90 @@
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
-import { Fragment, memo, useCallback, useEffect, useState } from 'react';
-import {
-  ActivityIndicator,
-  Image,
-  Platform,
-  Pressable,
-  StyleSheet,
-  View,
-} from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { memo, useCallback, useEffect, useMemo, useState } from 'react';
+import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
-import { ThemedText } from '@/components/themed-text';
-import { formatUnlockRateLine } from '@/lib/mobility-api';
-import {
-  estimateRangeKm,
-  getVehicleImageSource,
-  getVehicleVisual,
-} from '@/lib/vehicle-image-map';
+import { RouteStop } from '@/components/wayfinder/route';
+import { FontFamily, Type } from '@/constants/theme';
+import { useRideDistance } from '@/hooks/use-ride-distance';
+import { useTabBarSpace, useWayfinder } from '@/hooks/use-wayfinder';
+import { distanceMetersBetween } from '@/lib/geo-distance';
 import { fetchVehicleDetail } from '@/lib/mobility-api';
-import type { RideRowWithVehicle, VehicleWithState } from '@/types/entities';
+import { estimateRangeKm, getVehicleImageSource, getVehicleVisual, vehicleKindFromDbType } from '@/lib/vehicle-image-map';
+import type { RidePricingCatalog, RideRowWithVehicle, StationRow, VehicleWithState } from '@/types/entities';
 
-const RED = '#FF4B41';
+/** A ride starting this close to a station is shown as starting there. */
+const START_STATION_RADIUS_M = 300;
 
-type ActiveRideStatusChipProps = { isDark: boolean };
-
-/** Minimal top indicator — map stays primary. */
-export const ActiveRideStatusChip = memo(function ActiveRideStatusChip({ isDark }: ActiveRideStatusChipProps) {
-  const bg = isDark ? 'rgba(26,29,31,0.92)' : 'rgba(255,255,255,0.94)';
-  const border = isDark ? 'rgba(255,255,255,0.14)' : 'rgba(17,24,28,0.1)';
+/** Minimal top indicator on the map card. */
+export const ActiveRideStatusChip = memo(function ActiveRideStatusChip() {
+  const { c } = useWayfinder();
   return (
-    <View style={[statusStyles.wrap, { backgroundColor: bg, borderColor: border }]}>
-      <View style={statusStyles.dot} />
-      <ThemedText style={statusStyles.text}>Active ride</ThemedText>
+    <View style={[styles.chip, { backgroundColor: c.inverse }]}>
+      <View style={[styles.chipDot, { backgroundColor: c.accent }]} />
+      <Text style={[styles.chipText, { color: c.inverseText }]}>Active ride</Text>
     </View>
   );
 });
-
-const statusStyles = StyleSheet.create({
-  wrap: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    alignSelf: 'center',
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 999,
-    borderWidth: 1,
-  },
-  dot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: RED,
-  },
-  text: {
-    fontSize: 13,
-    fontWeight: '800',
-    letterSpacing: 0.2,
-  },
-});
-const CARD_BG_LIGHT = '#FFFFFF';
-const CARD_BG_DARK = '#1A1D1F';
-const MUTED_LIGHT = '#687076';
-const MUTED_DARK = '#9BA1A6';
 
 /** Parse API instants so naive ISO strings are treated as UTC (matches DB storage). */
 function parseRideStartInstant(startIso: string): number {
   const s = startIso.trim();
   const hasExplicitTz = /[zZ]$|[+-]\d{2}:\d{2}$/.test(s);
-  const t = hasExplicitTz ? new Date(s).getTime() : new Date(`${s.replace(/\s*$/, '')}Z`).getTime();
-  return t;
+  return hasExplicitTz ? new Date(s).getTime() : new Date(`${s.replace(/\s*$/, '')}Z`).getTime();
 }
 
-function formatRideDuration(startIso: string | null | undefined): string {
-  if (!startIso) return '00:00';
+function elapsedSeconds(startIso: string | null | undefined): number {
+  if (!startIso) return 0;
   const start = parseRideStartInstant(startIso);
-  if (Number.isNaN(start)) return '00:00';
-  const sec = Math.max(0, Math.floor((Date.now() - start) / 1000));
+  if (Number.isNaN(start)) return 0;
+  return Math.max(0, Math.floor((Date.now() - start) / 1000));
+}
+
+function formatRideDuration(sec: number): string {
   const m = Math.floor(sec / 60);
   const s = sec % 60;
   return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
 }
 
-type ActiveRideBottomCardProps = {
+function formatClock(startIso: string | null | undefined): string {
+  if (!startIso) return '—';
+  const start = parseRideStartInstant(startIso);
+  if (Number.isNaN(start)) return '—';
+  return new Date(start).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+}
+
+function startStationName(ride: RideRowWithVehicle, stations: StationRow[]): string {
+  if (ride.start_lat == null || ride.start_lng == null) return 'Ride start';
+  const start = { latitude: ride.start_lat, longitude: ride.start_lng };
+  let best: { name: string; meters: number } | null = null;
+  for (const s of stations) {
+    const meters = distanceMetersBetween(start, { latitude: s.lat, longitude: s.lng });
+    if (!best || meters < best.meters) best = { name: s.name, meters };
+  }
+  return best && best.meters <= START_STATION_RADIUS_M ? best.name : 'Ride start';
+}
+
+type ActiveRideDetailsProps = {
   activeRide: RideRowWithVehicle;
-  isDark: boolean;
   ending: boolean;
+  stations: StationRow[];
+  userLocation: { latitude: number; longitude: number } | null;
+  pricingCatalog: RidePricingCatalog | null;
   onEndRide: () => void;
+  style?: object;
 };
 
-export const ActiveRideBottomCard = memo(function ActiveRideBottomCard({
+/** Timer, route timeline, stats and Stop ride, shown under the map card during a ride. */
+export const ActiveRideDetails = memo(function ActiveRideDetails({
   activeRide,
-  isDark,
   ending,
+  stations,
+  userLocation,
+  pricingCatalog,
   onEndRide,
-}: ActiveRideBottomCardProps) {
-  const insets = useSafeAreaInsets();
+  style,
+}: ActiveRideDetailsProps) {
+  const { c } = useWayfinder();
+  const tabBarSpace = useTabBarSpace();
   const vehicleType = activeRide.vehicles?.type ?? null;
   const visual = getVehicleVisual(vehicleType);
   const imageSource = getVehicleImageSource(vehicleType);
@@ -111,230 +99,144 @@ export const ActiveRideBottomCard = memo(function ActiveRideBottomCard({
     void loadVehicle();
   }, [loadVehicle]);
 
-  const [tick, setTick] = useState(0);
+  const [, setTick] = useState(0);
   useEffect(() => {
     const id = setInterval(() => setTick((t) => t + 1), 1000);
     return () => clearInterval(id);
   }, []);
 
+  const ridden = useRideDistance(activeRide.ride_id, userLocation);
+  const startName = useMemo(() => startStationName(activeRide, stations), [activeRide, stations]);
+
   const battery = vehicleState?.battery_level;
-  const batteryPct =
-    battery == null || Number.isNaN(battery) ? null : Math.round(battery);
+  const batteryPct = battery == null || Number.isNaN(battery) ? null : Math.round(battery);
   const rangeKm = estimateRangeKm(vehicleType, battery ?? null);
-  const timerLabel = formatRideDuration(activeRide.start_time);
-  const rateLine = formatUnlockRateLine(activeRide.pricing ?? null);
-  void tick;
 
-  const cardBg = isDark ? CARD_BG_DARK : CARD_BG_LIGHT;
-  const border = isDark ? 'rgba(255,255,255,0.12)' : 'rgba(17,24,28,0.08)';
-  const muted = isDark ? MUTED_DARK : MUTED_LIGHT;
-  const strong = isDark ? '#ECEDEE' : '#11181C';
-  const chipBg = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(17,24,28,0.06)';
-
-  const liftShadow: object | undefined = isDark
-    ? undefined
-    : Platform.OS === 'ios'
-      ? SHADOW_IOS
-      : Platform.OS === 'android'
-        ? SHADOW_ANDROID
-        : Platform.OS === 'web'
-          ? SHADOW_WEB
-          : undefined;
+  const seconds = elapsedSeconds(activeRide.start_time);
+  // Same rule as the backend: billed per started minute, at least one. The final price comes from end-ride.
+  const rate = activeRide.pricing ?? pricingCatalog?.[vehicleKindFromDbType(vehicleType)] ?? null;
+  const costSoFar = rate ? rate.initial_fee + Math.max(1, Math.ceil(seconds / 60)) * rate.price_per_minute : null;
 
   return (
-    <View
-      style={[
-        styles.cardWrap,
-        { bottom: (Platform.OS === 'ios' ? 8 : 12) + insets.bottom },
-        liftShadow || undefined,
-      ]}>
-      <View style={[styles.card, { backgroundColor: cardBg, borderColor: border }]}>
-        <View style={styles.topRow}>
-          <View style={styles.heroCol}>
-            <View style={[styles.imageShell, { backgroundColor: chipBg }]}>
-              {imageSource ? (
-                <Image source={imageSource} style={styles.heroImg} resizeMode="contain" />
-              ) : (
-                <Ionicons name="bicycle" size={36} color={muted} />
-              )}
-            </View>
-            <View style={styles.titleBlock}>
-              <ThemedText style={[styles.vehicleTitle, { color: strong }]} numberOfLines={1}>
-                {visual.title}
-              </ThemedText>
-              <ThemedText style={[styles.subHint, { color: muted }]} numberOfLines={1}>
-                {rateLine ? `${rateLine} · ` : null}
-                Ride active · ID {activeRide.vehicle_id.slice(0, 8)}…
-              </ThemedText>
-            </View>
-          </View>
-          <View style={styles.timerBlock}>
-            <ThemedText style={[styles.timerLabel, { color: muted }]}>Duration</ThemedText>
-            <ThemedText style={[styles.timerValue, { color: strong }]}>{timerLabel}</ThemedText>
-          </View>
-        </View>
-
-        <View style={[styles.metricsRow, { backgroundColor: chipBg }]}>
-          <View style={styles.metric}>
-            <Ionicons name="battery-charging-outline" size={18} color={RED} />
-            <ThemedText style={[styles.metricVal, { color: strong }]}>
-              {batteryPct == null ? '—' : `${batteryPct}%`}
-            </ThemedText>
-            <ThemedText style={[styles.metricCap, { color: muted }]}>Battery</ThemedText>
-          </View>
-          <View style={[styles.metricDivider, { backgroundColor: border }]} />
-          <View style={styles.metric}>
-            <Ionicons name="navigate-outline" size={18} color={muted} />
-            <ThemedText style={[styles.metricVal, { color: strong }]}>
-              {rangeKm == null ? '—' : `~${rangeKm} km`}
-            </ThemedText>
-            <ThemedText style={[styles.metricCap, { color: muted }]}>Est. range</ThemedText>
-          </View>
-        </View>
-
-        <Pressable
-          onPress={onEndRide}
-          disabled={ending}
-          style={({ pressed }) => [{ opacity: pressed && !ending ? 0.92 : 1 }]}>
-          <LinearGradient
-            colors={['#11181C', RED]}
-            start={{ x: 0, y: 0.5 }}
-            end={{ x: 1, y: 0.5 }}
-            style={styles.endBtn}>
-            {ending ? (
-              <ActivityIndicator color="#fff" />
+    <ScrollView
+      style={[styles.details, { backgroundColor: c.bg }, style]}
+      contentContainerStyle={[styles.detailsContent, { paddingBottom: tabBarSpace }]}
+      showsVerticalScrollIndicator={false}>
+      <View style={styles.timerHead}>
+        <Text style={[Type.label, { color: c.muted }]}>DURATION</Text>
+        <View style={styles.vehicleLine}>
+          <View style={[styles.tile, { backgroundColor: c.photoTile }]}>
+            {imageSource ? (
+              <Image source={imageSource} style={styles.tileImage} resizeMode="contain" />
             ) : (
-              <Fragment>
-                <Ionicons name="stop-circle" size={22} color="#fff" style={styles.endIcon} />
-                <ThemedText style={styles.endBtnText}>Stop ride</ThemedText>
-              </Fragment>
+              <Ionicons name="bicycle" size={20} color="#121212" />
             )}
-          </LinearGradient>
-        </Pressable>
+          </View>
+          <Text style={[Type.body, { color: c.text }]} numberOfLines={1}>
+            {activeRide.vehicles?.model?.trim() || visual.title}
+          </Text>
+        </View>
       </View>
-    </View>
+      <Text style={[styles.timer, { color: c.text }]} accessibilityLabel={`Ride duration ${formatRideDuration(seconds)}`}>
+        {formatRideDuration(seconds)}
+      </Text>
+
+      <View style={styles.timeline}>
+        <RouteStop state="end" line="text" dotOffset={3}>
+          <View style={styles.stopRow}>
+            <View style={styles.stopText}>
+              <Text style={[Type.body, { color: c.text }]} numberOfLines={1}>
+                {startName}
+              </Text>
+              <Text style={[Type.secondary, { color: c.muted }]}>Started</Text>
+            </View>
+            <Text style={[Type.body, { color: c.text }]}>{formatClock(activeRide.start_time)}</Text>
+          </View>
+        </RouteStop>
+        <RouteStop state="current" line="dashed" dotOffset={3}>
+          <View style={styles.stopRow}>
+            <View style={styles.stopText}>
+              <Text style={[Type.body, { color: c.text }]}>You are here</Text>
+              <Text style={[Type.secondary, { color: c.muted }]}>
+                {ridden == null ? 'Turn on location to track distance' : `${(ridden / 1000).toFixed(1)} km ridden`}
+              </Text>
+            </View>
+            <Text style={[Type.body, { color: c.accentText }]}>Now</Text>
+          </View>
+        </RouteStop>
+        <RouteStop state="open" dotOffset={3}>
+          <Text style={[Type.body, { color: c.text }]}>Any station with free spots</Text>
+          <Text style={[Type.secondary, { color: c.muted }]}>Park there to end your ride</Text>
+        </RouteStop>
+      </View>
+
+      <View style={[styles.stats, { borderTopColor: c.text, borderBottomColor: c.line }]}>
+        <View style={styles.stat}>
+          <Text style={[Type.secondary, { color: c.muted }]}>Battery</Text>
+          <Text style={[Type.stat, { color: c.success }]}>{batteryPct == null ? '—' : `${batteryPct}%`}</Text>
+        </View>
+        <View style={[styles.stat, styles.statDivided, { borderLeftColor: c.line }]}>
+          <Text style={[Type.secondary, { color: c.muted }]}>Est. range</Text>
+          <Text style={[Type.stat, { color: c.text }]}>{rangeKm == null ? '—' : `${rangeKm} km`}</Text>
+        </View>
+        <View style={[styles.stat, styles.statDivided, { borderLeftColor: c.line }]}>
+          <Text style={[Type.secondary, { color: c.muted }]}>So far</Text>
+          <Text style={[Type.stat, { color: c.text }]}>{costSoFar == null ? '—' : `$${costSoFar.toFixed(2)}`}</Text>
+        </View>
+      </View>
+
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Stop ride"
+        accessibilityState={{ disabled: ending, busy: ending }}
+        onPress={onEndRide}
+        disabled={ending}
+        style={({ pressed }) => [styles.stop, { backgroundColor: c.inverse, opacity: pressed ? 0.88 : 1 }]}>
+        {ending ? (
+          <ActivityIndicator color={c.inverseText} />
+        ) : (
+          <>
+            <View style={[styles.stopSquare, { backgroundColor: c.accent }]} />
+            <Text style={[styles.stopText2, { color: c.inverseText }]}>Stop ride</Text>
+          </>
+        )}
+      </Pressable>
+    </ScrollView>
   );
 });
 
-const SHADOW_IOS = {
-  shadowColor: '#000',
-  shadowOffset: { width: 0, height: 8 },
-  shadowOpacity: 0.12,
-  shadowRadius: 24,
-};
-const SHADOW_ANDROID = { elevation: 10 };
-const SHADOW_WEB = {
-  boxShadow: '0 12px 32px rgba(0,0,0,0.14)',
-};
-
 const styles = StyleSheet.create({
-  cardWrap: {
-    position: 'absolute',
-    left: 12,
-    right: 12,
-    zIndex: 6,
-  },
-  card: {
-    borderRadius: 22,
-    borderWidth: 1,
-    padding: 14,
-    gap: 12,
-  },
-  topRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 10,
-  },
-  heroCol: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    flex: 1,
-    minWidth: 0,
-  },
-  imageShell: {
-    width: 64,
-    height: 64,
-    borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-    overflow: 'hidden',
-  },
-  heroImg: {
-    width: 68,
-    height: 62,
-  },
-  titleBlock: {
-    flex: 1,
-    minWidth: 0,
-    gap: 4,
-  },
-  vehicleTitle: {
-    fontSize: 17,
-    fontWeight: '800',
-    letterSpacing: -0.2,
-  },
-  subHint: {
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  timerBlock: {
-    alignItems: 'flex-end',
-    gap: 2,
-  },
-  timerLabel: {
-    fontSize: 10,
-    fontWeight: '700',
-    letterSpacing: 0.4,
-    textTransform: 'uppercase',
-  },
-  timerValue: {
-    fontSize: 26,
-    fontWeight: '800',
+  chip: { height: 30, paddingHorizontal: 12, borderRadius: 15, flexDirection: 'row', alignItems: 'center', gap: 8 },
+  chipDot: { width: 8, height: 8, borderRadius: 4 },
+  chipText: { fontFamily: FontFamily.bold, fontSize: 13 },
+  details: { flex: 1 },
+  detailsContent: { paddingHorizontal: 24, paddingTop: 10 },
+  timerHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
+  vehicleLine: { flexDirection: 'row', alignItems: 'center', gap: 8, flexShrink: 1 },
+  tile: { width: 40, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  tileImage: { width: 34, height: 30 },
+  timer: {
+    fontFamily: FontFamily.display,
+    fontSize: 84,
+    lineHeight: 92,
+    textAlign: 'center',
     fontVariant: ['tabular-nums'],
   },
-  metricsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderRadius: 14,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-  },
-  metric: {
-    flex: 1,
-    alignItems: 'center',
-    gap: 4,
-  },
-  metricDivider: {
-    width: 1,
-    height: 36,
-    opacity: 0.6,
-  },
-  metricVal: {
-    fontSize: 14,
-    fontWeight: '800',
-  },
-  metricCap: {
-    fontSize: 10,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-    letterSpacing: 0.35,
-  },
-  endBtn: {
-    borderRadius: 14,
-    minHeight: 52,
+  timeline: { marginTop: 2 },
+  stopRow: { flexDirection: 'row', justifyContent: 'space-between', gap: 12, paddingBottom: 12 },
+  stopText: { flex: 1, minWidth: 0 },
+  stats: { flexDirection: 'row', marginTop: 8, borderTopWidth: 1.5, borderBottomWidth: 1 },
+  stat: { flex: 1, paddingVertical: 12 },
+  statDivided: { borderLeftWidth: 1, paddingLeft: 14 },
+  stop: {
+    marginTop: 14,
+    height: 58,
+    borderRadius: 20,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
+    gap: 10,
   },
-  endIcon: {
-    marginRight: -2,
-  },
-  endBtnText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '800',
-  },
+  stopSquare: { width: 18, height: 18, borderRadius: 4 },
+  stopText2: { fontFamily: FontFamily.bold, fontSize: 18 },
 });

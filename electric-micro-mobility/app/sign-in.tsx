@@ -1,45 +1,39 @@
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
+import { Ionicons } from '@expo/vector-icons';
 import { router, type Href } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Image,
   KeyboardAvoidingView,
   Platform,
-  Pressable,
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
-  TouchableOpacity,
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { LoaderAccent } from '@/constants/theme';
+import { ApiNotConfigured, FooterLink, SocialRow } from '@/components/wayfinder/auth-parts';
+import { RouteStop } from '@/components/wayfinder/route';
+import { Button, Field } from '@/components/wayfinder/ui';
+import { FontFamily, LoaderAccent } from '@/constants/theme';
 import { useAuth } from '@/contexts/auth-context';
+import { useWayfinder } from '@/hooks/use-wayfinder';
 
-const PAGE_BG = '#FFFFFF';
-const CARD_BG = '#FFFFFF';
-const INPUT_BG = '#F5F5F5';
-const LABEL_COLOR = '#9E9E9E';
-const HEADING_COLOR = '#111111';
-const MUTED_TEXT = '#757575';
-const SIGN_UP_RED = '#E53935';
-const GRADIENT_GREEN = '#1B4332';
-const GRADIENT_RED = '#D90429';
+const SCOOTER = require('@/assets/vehicles/electric-scooter-elite.png');
 
 export default function SignInScreen() {
   const insets = useSafeAreaInsets();
+  const { c } = useWayfinder();
   const { user, loading, configured, signIn } = useAuth();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [focused, setFocused] = useState<'email' | 'password' | null>(null);
 
   useEffect(() => {
     if (!loading && user && configured) {
@@ -81,56 +75,37 @@ export default function SignInScreen() {
     );
   }
 
-  if (!configured) {
-    return (
-      <ThemedView style={[styles.container, { paddingTop: insets.top + 24, paddingHorizontal: 24 }]}>
-        <ThemedText type="title" style={styles.title}>
-          Connect API
-        </ThemedText>
-        <ThemedText style={styles.body}>
-          Point the app at your FastAPI backend (Neon is used only on the server).
-        </ThemedText>
-        <ThemedText style={styles.list}>
-          {`• .env: EXPO_PUBLIC_API_URL=http://127.0.0.1:8000\n• Or constants/api-config.ts API_BASE_URL_OVERRIDE\n• Or app.config.js extra.apiBaseUrl\n• Android emulator: http://10.0.2.2:8000`}
-        </ThemedText>
-      </ThemedView>
-    );
-  }
+  if (!configured) return <ApiNotConfigured />;
 
   return (
     <KeyboardAvoidingView
-      style={styles.keyboardRoot}
+      style={[styles.flex, { backgroundColor: c.bg }]}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <ScrollView
-        style={styles.scroll}
         keyboardShouldPersistTaps="handled"
-        contentContainerStyle={[
-          styles.scrollContent,
-          {
-            paddingTop: insets.top + 20,
-            paddingBottom: insets.bottom + 24,
-            paddingHorizontal: 20,
-          },
-        ]}
-        keyboardDismissMode="on-drag">
-        <View style={styles.card}>
-          <View style={styles.logoBlock}>
-            <View style={styles.logoMark}>
-              <Ionicons name="location" size={52} color="#C62828" style={styles.logoPin} />
-              <View style={styles.logoBadge}>
-                <MaterialCommunityIcons name="scooter-electric" size={18} color="#2E7D32" />
-              </View>
-            </View>
+        keyboardDismissMode="on-drag"
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={[styles.content, { paddingTop: insets.top + 16, paddingBottom: insets.bottom + 24 }]}>
+        <View style={styles.hero}>
+          <View style={styles.brand}>
+            <View style={[styles.brandDot, { backgroundColor: c.accent }]} />
+            <Text style={[styles.brandText, { color: c.text }]}>EcoMobility</Text>
           </View>
+          <View style={[styles.ring, { borderColor: c.line }]} />
+          <View style={[styles.circle, { backgroundColor: c.photoTile }]} />
+          <Image source={SCOOTER} style={styles.scooter} resizeMode="contain" accessibilityLabel="Electric scooter" />
+        </View>
 
-          <Text style={styles.heading}>Sign in your account</Text>
+        <Text style={[styles.title, { color: c.text }]} accessibilityRole="header">
+          Welcome back
+        </Text>
+        <Text style={[styles.subtitle, { color: c.muted }]}>Sign in to your account</Text>
 
-          <View style={styles.field}>
-            <Text style={styles.fieldLabel}>Email</Text>
-            <TextInput
-              style={styles.input}
+        <View style={styles.form}>
+          <RouteStop state={focused === 'email' || !!email ? 'current' : 'upcoming'} line="accent">
+            <Field
+              label="Email"
               placeholder="ex: jon.smith@email.com"
-              placeholderTextColor="#BDBDBD"
               autoCapitalize="none"
               keyboardType="email-address"
               autoComplete="email"
@@ -139,16 +114,15 @@ export default function SignInScreen() {
                 setEmail(t);
                 setFormError(null);
               }}
-              accessibilityLabel="Email"
+              onFocus={() => setFocused('email')}
+              onBlur={() => setFocused(null)}
+              style={styles.field}
             />
-          </View>
-
-          <View style={styles.field}>
-            <Text style={styles.fieldLabel}>Password</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="••••••••         "
-              placeholderTextColor="#BDBDBD"
+          </RouteStop>
+          <RouteStop state={focused === 'password' || !!password ? 'current' : 'upcoming'} line="accent">
+            <Field
+              label="Password"
+              placeholder="••••••••"
               secureTextEntry
               autoComplete="password"
               value={password}
@@ -156,66 +130,37 @@ export default function SignInScreen() {
                 setPassword(t);
                 setFormError(null);
               }}
-              accessibilityLabel="Password"
+              onFocus={() => setFocused('password')}
+              onBlur={() => setFocused(null)}
+              onSubmitEditing={() => void onSignIn()}
+              style={styles.field}
             />
-          </View>
+          </RouteStop>
+          {formError ? (
+            <RouteStop state="upcoming" line="accent" dotOffset={0}>
+              <Text style={[styles.error, { color: c.accentText }]}>{formError}</Text>
+            </RouteStop>
+          ) : null}
+          <RouteStop state="end" centered>
+            <Button
+              label="Login"
+              onPress={() => void onSignIn()}
+              loading={busy}
+              height={58}
+              spread
+              trailing={<Ionicons name="arrow-forward" size={22} color={c.onAccent} />}
+            />
+          </RouteStop>
+        </View>
 
-          {formError ? <Text style={styles.formErrorText}>{formError}</Text> : null}
-
-          <Pressable
-            onPress={onSignIn}
+        <View style={styles.socialBlock}>
+          <SocialRow heading="Or sign in with" onPress={onSocialPlaceholder} />
+          <FooterLink
+            prompt="New to EcoMobility?"
+            action="Sign up"
             disabled={busy}
-            style={({ pressed }) => [styles.loginPressable, pressed && !busy && styles.loginPressablePressed]}>
-            <LinearGradient
-              colors={[GRADIENT_GREEN, GRADIENT_RED]}
-              start={{ x: 0, y: 0.5 }}
-              end={{ x: 1, y: 0.5 }}
-              style={styles.loginGradient}>
-              {busy ? (
-                <ActivityIndicator color="#fff" />
-              ) : (
-                <Text style={styles.loginButtonText}>Login</Text>
-              )}
-            </LinearGradient>
-          </Pressable>
-
-          <Text style={styles.socialDivider}>or sign in with</Text>
-
-          <View style={styles.socialRow}>
-            <Pressable
-              style={({ pressed }) => [styles.socialBtn, pressed && styles.socialBtnPressed]}
-              onPress={() => onSocialPlaceholder('Google')}
-              accessibilityRole="button"
-              accessibilityLabel="Sign in with Google">
-              <Ionicons name="logo-google" size={22} color="#DB4437" />
-            </Pressable>
-            <Pressable
-              style={({ pressed }) => [styles.socialBtn, pressed && styles.socialBtnPressed]}
-              onPress={() => onSocialPlaceholder('Facebook')}
-              accessibilityRole="button"
-              accessibilityLabel="Sign in with Facebook">
-              <Ionicons name="logo-facebook" size={22} color="#4267B2" />
-            </Pressable>
-            <Pressable
-              style={({ pressed }) => [styles.socialBtn, pressed && styles.socialBtnPressed]}
-              onPress={() => onSocialPlaceholder('Twitter')}
-              accessibilityRole="button"
-              accessibilityLabel="Sign in with X / Twitter">
-              <Ionicons name="logo-twitter" size={22} color="#1DA1F2" />
-            </Pressable>
-          </View>
-
-          <View style={styles.footer}>
-            <Text style={styles.footerMuted}>{`Don't have an account? `}</Text>
-            <TouchableOpacity
-              onPress={() => router.push('/sign-up' as Href)}
-              disabled={busy}
-              activeOpacity={0.7}
-              accessibilityRole="link"
-              accessibilityLabel="Sign up">
-              <Text style={styles.footerLink}>SIGN UP</Text>
-            </TouchableOpacity>
-          </View>
+            onPress={() => router.push('/sign-up' as Href)}
+          />
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -223,175 +168,20 @@ export default function SignInScreen() {
 }
 
 const styles = StyleSheet.create({
-  keyboardRoot: {
-    flex: 1,
-    backgroundColor: PAGE_BG,
-  },
-  scroll: {
-    flex: 1,
-  },
-  centered: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  scrollContent: {
-    flexGrow: 1,
-    justifyContent: 'center',
-  },
-  container: {
-    gap: 12,
-  },
-  card: {
-    backgroundColor: CARD_BG,
-    borderRadius: 28,
-    paddingHorizontal: 24,
-    paddingTop: 28,
-    paddingBottom: 26,
-    width: '100%',
-    maxWidth: 420,
-    alignSelf: 'center',
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 8 },
-        shadowOpacity: 0.08,
-        shadowRadius: 24,
-      },
-      android: { elevation: 6 },
-      default: {},
-    }),
-  },
-  logoBlock: {
-    alignItems: 'center',
-    marginBottom: 6,
-  },
-  logoMark: {
-    width: 56,
-    height: 56,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  logoPin: {
-    marginTop: -6,
-  },
-  logoBadge: {
-    position: 'absolute',
-    top: 10,
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: '#FFFFFF',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(0,0,0,0.06)',
-  },
-  heading: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: HEADING_COLOR,
-    textAlign: 'center',
-    marginBottom: 22,
-    letterSpacing: -0.2,
-  },
-  field: {
-    marginBottom: 16,
-  },
-  fieldLabel: {
-    fontSize: 12,
-    color: LABEL_COLOR,
-    marginBottom: 8,
-    marginLeft: 2,
-    fontWeight: '500',
-  },
-  input: {
-    backgroundColor: INPUT_BG,
-    borderRadius: 999,
-    paddingHorizontal: 18,
-    paddingVertical: Platform.OS === 'ios' ? 15 : 12,
-    fontSize: 15,
-    color: '#212121',
-    borderWidth: 0,
-  },
-  formErrorText: {
-    fontSize: 13,
-    color: '#B00020',
-    marginBottom: 8,
-    marginTop: -4,
-    marginLeft: 4,
-  },
-  loginPressable: {
-    borderRadius: 999,
-    overflow: 'hidden',
-    marginTop: 6,
-  },
-  loginPressablePressed: {
-    opacity: 0.92,
-  },
-  loginGradient: {
-    paddingVertical: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 999,
-    minHeight: 48,
-  },
-  loginButtonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  socialDivider: {
-    textAlign: 'center',
-    fontSize: 13,
-    color: MUTED_TEXT,
-    marginTop: 22,
-    marginBottom: 14,
-    fontWeight: '400',
-  },
-  socialRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: 10,
-  },
-  socialBtn: {
-    flex: 1,
-    backgroundColor: INPUT_BG,
-    borderRadius: 12,
-    height: 48,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  socialBtnPressed: {
-    opacity: 0.85,
-  },
-  footer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginTop: 26,
-    paddingHorizontal: 4,
-  },
-  footerMuted: {
-    fontSize: 14,
-    color: MUTED_TEXT,
-  },
-  footerLink: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: SIGN_UP_RED,
-    letterSpacing: 0.3,
-  },
-  title: {
-    marginBottom: 4,
-  },
-  body: {
-    lineHeight: 22,
-  },
-  list: {
-    lineHeight: 22,
-    fontFamily: Platform.select({ ios: 'Menlo', default: 'monospace' }),
-    fontSize: 13,
-  },
+  flex: { flex: 1 },
+  centered: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  content: { flexGrow: 1, paddingHorizontal: 24, width: '100%', maxWidth: 480, alignSelf: 'center' },
+  hero: { height: 190 },
+  brand: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  brandDot: { width: 12, height: 12, borderRadius: 6 },
+  brandText: { fontFamily: FontFamily.display, fontSize: 16, letterSpacing: -0.2 },
+  ring: { position: 'absolute', right: -50, top: -30, width: 236, height: 236, borderRadius: 118, borderWidth: 1 },
+  circle: { position: 'absolute', right: -6, top: 14, width: 160, height: 160, borderRadius: 80 },
+  scooter: { position: 'absolute', right: 0, top: -4, width: 190, height: 190 },
+  title: { fontFamily: FontFamily.display, fontSize: 44, lineHeight: 48, letterSpacing: -1.8, marginTop: 8 },
+  subtitle: { fontFamily: FontFamily.regular, fontSize: 17, marginTop: 6 },
+  form: { marginTop: 8 },
+  field: { paddingTop: 16, paddingBottom: 8 },
+  error: { fontFamily: FontFamily.medium, fontSize: 14, paddingBottom: 12 },
+  socialBlock: { marginTop: 'auto', paddingTop: 28 },
 });

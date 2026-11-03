@@ -1,6 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
+import { FontFamily } from '@/constants/theme';
+
 import { ACCENT } from '@/components/account/account-theme';
 
 export type PickerOption = {
@@ -34,10 +36,9 @@ export function PreferencePickerModal({
 }: Props) {
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <Pressable style={styles.backdrop} onPress={onClose} accessibilityRole="button">
-        <Pressable
-          style={[styles.sheet, { backgroundColor: colors.cardBg }]}
-          onPress={(e) => e.stopPropagation()}>
+      <View style={styles.backdrop}>
+        <Pressable style={StyleSheet.absoluteFill} onPress={onClose} accessibilityLabel="Close" />
+        <View style={[styles.sheet, { backgroundColor: colors.cardBg }]}>
           <View style={[styles.handleZone, { borderBottomColor: colors.divider }]}>
             <Text style={[styles.title, { color: colors.text }]}>{title}</Text>
             <Pressable onPress={onClose} hitSlop={12} accessibilityRole="button" accessibilityLabel="Close">
@@ -72,8 +73,8 @@ export function PreferencePickerModal({
               );
             })}
           </ScrollView>
-        </Pressable>
-      </Pressable>
+        </View>
+      </View>
     </Modal>
   );
 }
@@ -101,7 +102,7 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 17,
-    fontWeight: '800',
+    fontFamily: FontFamily.bold,
     letterSpacing: -0.2,
     flex: 1,
     marginRight: 12,
@@ -120,6 +121,6 @@ const styles = StyleSheet.create({
   label: {
     flex: 1,
     fontSize: 16,
-    fontWeight: '600',
+    fontFamily: FontFamily.semibold,
   },
 });

@@ -14,7 +14,7 @@ import {
 
 import { AccountHeader } from '@/components/account/account-header';
 import { AccountSearchBar } from '@/components/account/account-search-bar';
-import { accountSurfaces, ACCENT, cardShadow } from '@/components/account/account-theme';
+import { accountSurfaces } from '@/components/account/account-theme';
 import { PreferencePickerModal } from '@/components/account/preference-picker-modal';
 import { QuickActionsRow } from '@/components/account/quick-actions';
 import { RidePreviewCard } from '@/components/account/ride-preview-card';
@@ -26,11 +26,12 @@ import { ToggleRow } from '@/components/account/toggle-row';
 import { ThemedText } from '@/components/themed-text';
 import { AccountSkeleton } from '@/components/screen-skeletons';
 import { ThemedView } from '@/components/themed-view';
-import { LoaderAccent } from '@/constants/theme';
+import { FontFamily, LoaderAccent, Type } from '@/constants/theme';
 import { useAuth } from '@/contexts/auth-context';
 import { useAccountScreenData } from '@/hooks/use-account-screen-data';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { usePreferences } from '@/hooks/use-preferences';
+import { useTabBarSpace } from '@/hooks/use-wayfinder';
 import { matchesAccountSearch } from '@/lib/account-search';
 import { LANGUAGE_LABELS, THEME_LABELS } from '@/lib/preferences/labels';
 import { LANGUAGE_PICKER_OPTIONS, THEME_PICKER_OPTIONS } from '@/lib/preferences/picker-options';
@@ -55,7 +56,8 @@ export default function AccountScreen() {
   const { user, signOut } = useAuth();
   const colorScheme = useColorScheme();
   const surfaces = accountSurfaces(colorScheme);
-  const { text: onSurface, muted, subtle, cardBg, pageBg, divider, searchBg, destructive } = surfaces;
+  const { text: onSurface, muted, cardBg, pageBg, divider, destructive } = surfaces;
+  const tabBarSpace = useTabBarSpace();
 
   const { preferences, updatePreferences } = usePreferences();
   const [searchQuery, setSearchQuery] = useState('');
@@ -92,10 +94,12 @@ export default function AccountScreen() {
   } = useAccountScreenData(user?.id);
 
   const displayName = profile?.name?.trim() || user?.email?.trim() || 'Rider';
-  const avatarLetter = useMemo(
-    () => (displayName.trim().charAt(0) || '?').toUpperCase(),
-    [displayName]
-  );
+  const avatarLetter = useMemo(() => {
+    const words = displayName.trim().split(/\s+/).filter(Boolean);
+    const first = words[0]?.charAt(0) ?? '?';
+    const last = words.length > 1 ? words[words.length - 1].charAt(0) : '';
+    return `${first}${last}`.toUpperCase();
+  }, [displayName]);
   const emailLine = profile?.email ?? user?.email ?? '';
   const phoneLine = profile?.phone_number ?? null;
 
@@ -131,12 +135,6 @@ export default function AccountScreen() {
     [reservations]
   );
 
-  const distanceLabel = useMemo(() => {
-    const km = totalDistanceM / 1000;
-    if (km < 0.1 && totalDistanceM > 0) return `${Math.round(totalDistanceM)} m`;
-    return `${km < 10 ? km.toFixed(1) : Math.round(km)} km`;
-  }, [totalDistanceM]);
-
   const co2Kg = useMemo(() => {
     const km = totalDistanceM / 1000;
     return km * 0.12;
@@ -153,83 +151,35 @@ export default function AccountScreen() {
 
   const walletLine = walletError ? 'Tap to refresh in Wallet' : `${walletCredits} ride credits`;
 
-  const favoriteVehicleLine =
-    rides.length > 0 ? 'E-scooter' : '—';
-
   const statsItems = useMemo((): StatItem[] => {
-    const base: StatItem[] = [
-      {
-        key: 'rides',
-        label: 'Total rides',
-        value: `${rides.length}`,
-        icon: 'navigate-outline',
-      },
-      {
-        key: 'mins',
-        label: 'Total time',
-        value: `${totalMinutes}`,
-        sub: 'minutes',
-        icon: 'time-outline',
-        highlight: totalMinutes > 0,
-      },
+    const km = totalDistanceM / 1000;
+    return [
+      { key: 'rides', label: 'Total rides', value: `${rides.length}` },
       {
         key: 'dist',
         label: 'Distance',
-        value: rides.length ? distanceLabel : '—',
-        sub: totalDistanceM ? undefined : 'No trips yet',
-        icon: 'speedometer-outline',
+        value: totalDistanceM ? `${km < 10 ? km.toFixed(1) : Math.round(km)}` : '—',
+        unit: totalDistanceM ? 'km' : undefined,
       },
       {
-        key: 'fav',
-        label: 'Favorite type',
-        value: favoriteVehicleLine,
-        sub: rides.length ? 'Typical choice' : undefined,
-        icon: 'bicycle-outline',
-      },
-      {
-        key: 'wallet',
-        label: 'Wallet',
-        value: walletError ? '—' : `${walletCredits}`,
-        sub: walletError ?? 'ride credits',
-        icon: 'wallet-outline',
-      },
-      {
-        key: 'resv',
-        label: 'Active holds',
-        value: `${activeReservations}`,
-        sub: activeReservations ? 'Tap Reservations tab' : 'None',
-        icon: 'calendar-outline',
-      },
-    ];
-    if (totalDistanceM > 0) {
-      base.push({
         key: 'co2',
-        label: 'Est. impact vs. car',
-        value: `~${co2Kg < 10 ? co2Kg.toFixed(1) : Math.round(co2Kg)} kg`,
-        sub: 'CO₂ not emitted (estimate)',
-        icon: 'leaf-outline',
-        fullWidth: true,
-      });
-    }
-    return base;
-  }, [
-    rides.length,
-    totalMinutes,
-    distanceLabel,
-    favoriteVehicleLine,
-    walletCredits,
-    walletError,
-    activeReservations,
-    totalDistanceM,
-    co2Kg,
-  ]);
+        label: 'CO₂ vs. car',
+        value: totalDistanceM ? `${co2Kg < 10 ? co2Kg.toFixed(1) : Math.round(co2Kg)}` : '—',
+        unit: totalDistanceM ? 'kg' : undefined,
+        positive: true,
+      },
+      { key: 'mins', label: 'Total time', value: `${totalMinutes}`, unit: 'min' },
+      { key: 'wallet', label: 'Ride credits', value: walletError ? '—' : `${walletCredits}` },
+      { key: 'resv', label: 'Active holds', value: `${activeReservations}` },
+    ];
+  }, [rides.length, totalMinutes, walletCredits, walletError, activeReservations, totalDistanceM, co2Kg]);
 
   const rowColors = useMemo(
     () => ({ text: onSurface, muted, divider, cardBg }),
     [onSurface, muted, divider, cardBg]
   );
 
-  const qProfile = ['profile', 'account', 'email', 'phone', 'password', 'security', 'verified', displayName, emailLine];
+  const qProfile = ['profile', 'account', 'email', 'phone', 'password', 'security', 'verified', 'ride', 'history', 'payment', displayName, emailLine];
   const qQuick = ['quick', 'action', 'edit', 'payment', 'notifications', 'help', 'wallet'];
   const qStats = ['usage', 'rides', 'minutes', 'wallet', 'distance', 'reservation', 'impact', 'environment'];
   const qPrefs = ['preference', 'language', 'theme', 'accessibility', 'sound', 'vibration'];
@@ -317,7 +267,7 @@ export default function AccountScreen() {
     <ThemedView style={styles.flex} lightColor={pageBg} darkColor={pageBg}>
       <ScrollView
         style={styles.flex}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: tabBarSpace }]}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={LoaderAccent} />
@@ -331,18 +281,22 @@ export default function AccountScreen() {
           verificationLabel={verificationLabel}
           isVerified={isVerified}
           profileCompletion={profileCompletion}
-          pageBg={pageBg}
           onEditProfile={comingSoon('Edit profile', 'Updates will sync from your profile API.')}
           onChangePhoto={comingSoon('Profile photo', 'Camera & library upload will connect here.')}
-          onSecurity={comingSoon('Login & security', 'Sessions, devices, and MFA will be managed here.')}
-          colors={{
-            text: onSurface,
-            muted,
-            subtle,
-            cardBg,
-            elevatedStroke: surfaces.elevatedStroke,
-          }}
         />
+
+        {showStats ? <StatsSummary items={statsItems} /> : null}
+
+        <AccountSearchBar value={searchQuery} onChangeText={setSearchQuery} colors={{ text: onSurface, muted }} />
+
+        {noSearchHits ? (
+          <View style={[styles.noResults, { backgroundColor: cardBg }]}>
+            <Ionicons name="search-outline" size={22} color={muted} />
+            <ThemedText style={styles.noResultsText} lightColor={muted} darkColor={muted}>
+              No settings match “{searchQuery.trim()}”. Try another keyword.
+            </ThemedText>
+          </View>
+        ) : null}
 
         {showQuick ? (
           <QuickActionsRow
@@ -383,51 +337,43 @@ export default function AccountScreen() {
           />
         ) : null}
 
-        <AccountSearchBar value={searchQuery} onChangeText={setSearchQuery} colors={{ text: onSurface, muted, searchBg }} />
-
-        {noSearchHits ? (
-          <View style={[styles.noResults, cardShadow, { backgroundColor: cardBg }]}>
-            <Ionicons name="search-outline" size={22} color={muted} />
-            <ThemedText style={styles.noResultsText} lightColor={muted} darkColor={muted}>
-              No settings match “{searchQuery.trim()}”. Try another keyword.
-            </ThemedText>
-          </View>
-        ) : null}
-
-        {showStats ? (
-          <SettingsSection title="USAGE & IMPACT" titleColor={muted} surfaceColor={cardBg} visible>
-            <StatsSummary items={statsItems} colors={{ text: onSurface, muted, cardBg }} />
-          </SettingsSection>
-        ) : null}
 
         <SettingsSection
-          title="PROFILE & ACCOUNT"
+          title="ACCOUNT"
           titleColor={muted}
           surfaceColor={cardBg}
           visible={showProfile}>
           <SettingsRow
+            title="Ride history"
+            subtitle={`${rides.length} ${rides.length === 1 ? 'trip' : 'trips'}`}
+            colors={rowColors}
+            onPress={comingSoon('Ride history', 'Export and filters will live here.')}
+            isFirst
+          />
+          <SettingsRow
+            title="Payments"
+            subtitle="Cards and digital wallets"
+            colors={rowColors}
+            onPress={() => router.push('/(tabs)/wallet' as Href)}
+          />
+          <SettingsRow
             title="Change password"
             subtitle="Update your sign-in password"
-            icon="key-outline"
             colors={rowColors}
             onPress={comingSoon('Change password')}
-            isFirst
           />
           <SettingsRow
             title="Login & security"
             subtitle="Sessions, 2FA, and linked devices"
-            icon="shield-checkmark-outline"
             colors={rowColors}
-            onPress={comingSoon('Login & security')}
+            onPress={comingSoon('Login & security', 'Sessions, devices, and MFA will be managed here.')}
           />
           <SettingsRow
             title="Verify identity"
             subtitle="Driver license or ID for regulated zones"
-            icon="person-circle-outline"
             colors={rowColors}
             onPress={comingSoon('Identity verification')}
             badge="Recommended"
-            badgeVariant="recommended"
             isLast
           />
         </SettingsSection>
@@ -436,7 +382,6 @@ export default function AccountScreen() {
           <SettingsRow
             title="Language"
             subtitle={LANGUAGE_LABELS[preferences.language]}
-            icon="language-outline"
             colors={rowColors}
             onPress={() => setPreferencePicker('language')}
             isFirst
@@ -444,14 +389,12 @@ export default function AccountScreen() {
           <SettingsRow
             title="Theme"
             subtitle={THEME_LABELS[preferences.themeMode]}
-            icon="moon-outline"
             colors={rowColors}
             onPress={() => setPreferencePicker('theme')}
           />
           <ToggleRow
             title="Accessibility"
             subtitle="Larger touch targets & contrast"
-            icon="accessibility-outline"
             value={preferences.accessibilityEnabled}
             onValueChange={(v) => updatePreferences({ accessibilityEnabled: v })}
             colors={rowColors}
@@ -459,7 +402,6 @@ export default function AccountScreen() {
           <ToggleRow
             title="Sounds"
             subtitle="Arrival, start, and end chimes"
-            icon="volume-high-outline"
             value={preferences.soundsEnabled}
             onValueChange={(v) => updatePreferences({ soundsEnabled: v })}
             colors={rowColors}
@@ -467,7 +409,6 @@ export default function AccountScreen() {
           <ToggleRow
             title="Vibration"
             subtitle="Haptics for actions"
-            icon="phone-portrait-outline"
             value={preferences.vibrationEnabled}
             onValueChange={(v) => updatePreferences({ vibrationEnabled: v })}
             colors={rowColors}
@@ -479,7 +420,6 @@ export default function AccountScreen() {
           <ToggleRow
             title="Push notifications"
             subtitle="Critical trip and fleet alerts"
-            icon="notifications-outline"
             value={notifications.push}
             onValueChange={(v) => setNotif('push', v)}
             colors={rowColors}
@@ -487,7 +427,6 @@ export default function AccountScreen() {
           <ToggleRow
             title="Ride reminders"
             subtitle="Start and end nudges"
-            icon="alarm-outline"
             value={notifications.rideReminders}
             onValueChange={(v) => setNotif('rideReminders', v)}
             colors={rowColors}
@@ -495,7 +434,6 @@ export default function AccountScreen() {
           <ToggleRow
             title="Reservation expiry"
             subtitle="Before your hold ends"
-            icon="hourglass-outline"
             value={notifications.reservationExpiry}
             onValueChange={(v) => setNotif('reservationExpiry', v)}
             colors={rowColors}
@@ -503,7 +441,6 @@ export default function AccountScreen() {
           <ToggleRow
             title="Promotions & offers"
             subtitle="Credits and partner deals (new)"
-            icon="pricetag-outline"
             value={notifications.promotions}
             onValueChange={(v) => setNotif('promotions', v)}
             colors={rowColors}
@@ -511,7 +448,6 @@ export default function AccountScreen() {
           <ToggleRow
             title="Email"
             subtitle="Receipts and statements"
-            icon="mail-outline"
             value={notifications.email}
             onValueChange={(v) => setNotif('email', v)}
             colors={rowColors}
@@ -519,7 +455,6 @@ export default function AccountScreen() {
           <ToggleRow
             title="SMS"
             subtitle="Security codes and ride status"
-            icon="chatbubble-outline"
             value={notifications.sms}
             onValueChange={(v) => setNotif('sms', v)}
             colors={rowColors}
@@ -527,7 +462,6 @@ export default function AccountScreen() {
           <ToggleRow
             title="System announcements"
             subtitle="Incidents, policy, and app updates"
-            icon="megaphone-outline"
             value={notifications.announcements}
             onValueChange={(v) => setNotif('announcements', v)}
             colors={rowColors}
@@ -539,40 +473,28 @@ export default function AccountScreen() {
           <SettingsRow
             title="Wallet & credits"
             subtitle={walletLine}
-            icon="wallet-outline"
             colors={rowColors}
             onPress={() => router.push('/(tabs)/wallet' as Href)}
             isFirst
           />
           <SettingsRow
-            title="Saved payment methods"
-            subtitle="Cards and digital wallets"
-            icon="card-outline"
-            colors={rowColors}
-            onPress={() => router.push('/(tabs)/wallet' as Href)}
-          />
-          <SettingsRow
             title="Billing history"
             subtitle="Invoices and receipts"
-            icon="document-text-outline"
             colors={rowColors}
             onPress={comingSoon('Billing history')}
           />
           <SettingsRow
             title="Transactions"
             subtitle="Top-ups and trip charges"
-            icon="swap-horizontal-outline"
             colors={rowColors}
             onPress={comingSoon('Transactions')}
           />
           <SettingsRow
             title="Promo codes"
             subtitle="Apply discounts and campaigns"
-            icon="gift-outline"
             colors={rowColors}
             onPress={comingSoon('Promo codes')}
             badge="New"
-            badgeVariant="new"
             isLast
           />
         </SettingsSection>
@@ -581,25 +503,16 @@ export default function AccountScreen() {
           <SettingsRow
             title="Emergency contact"
             subtitle="Shared with trip monitoring"
-            icon="medkit-outline"
             colors={rowColors}
             onPress={comingSoon('Emergency contact')}
             isFirst
           />
-          <SettingsRow title="Safety tips" subtitle="Helmet, lanes, and night riding" icon="bulb-outline" colors={rowColors} onPress={comingSoon('Safety tips')} />
+          <SettingsRow title="Safety tips" subtitle="Helmet, lanes, and night riding" colors={rowColors} onPress={comingSoon('Safety tips')} />
           <SettingsRow
             title="Report an issue"
             subtitle="Damage, harassment, or blocked paths"
-            icon="warning-outline"
             colors={rowColors}
             onPress={() => router.push('/(tabs)/support' as Href)}
-          />
-          <SettingsRow
-            title="Ride history"
-            subtitle={`${rides.length} completed trips`}
-            icon="git-commit-outline"
-            colors={rowColors}
-            onPress={comingSoon('Ride history', 'Export and filters will live here.')}
             isLast
           />
         </SettingsSection>
@@ -608,25 +521,22 @@ export default function AccountScreen() {
           <SettingsRow
             title="Privacy"
             subtitle="Data, analytics, and sharing"
-            icon="lock-closed-outline"
             colors={rowColors}
             onPress={comingSoon('Privacy')}
             isFirst
           />
-          <SettingsRow title="Terms & conditions" subtitle="Use of service" icon="document-outline" colors={rowColors} onPress={comingSoon('Terms')} />
-          <SettingsRow title="Help center" subtitle="Guides and troubleshooting" icon="book-outline" colors={rowColors} onPress={() => router.push('/(tabs)/support' as Href)} />
-          <SettingsRow title="FAQ" subtitle="Short answers to common questions" icon="help-circle-outline" colors={rowColors} onPress={comingSoon('FAQ')} />
+          <SettingsRow title="Terms & conditions" subtitle="Use of service" colors={rowColors} onPress={comingSoon('Terms')} />
+          <SettingsRow title="Help center" subtitle="Guides and troubleshooting" colors={rowColors} onPress={() => router.push('/(tabs)/support' as Href)} />
+          <SettingsRow title="FAQ" subtitle="Short answers to common questions" colors={rowColors} onPress={comingSoon('FAQ')} />
           <SettingsRow
             title="Contact support"
             subtitle="Chat and ticket history"
-            icon="chatbubbles-outline"
             colors={rowColors}
             onPress={() => router.push('/(tabs)/support' as Href)}
           />
           <SettingsRow
             title="About"
             subtitle={`EcoMobility • v${appVersion}`}
-            icon="information-circle-outline"
             colors={rowColors}
             onPress={comingSoon('About EcoMobility')}
             isLast
@@ -636,9 +546,9 @@ export default function AccountScreen() {
         {showRecent && rides.length > 0 ? (
           <View style={styles.recentBlock}>
             <View style={styles.recentHead}>
-              <Text style={[styles.recentTitle, { color: muted }]}>RECENT ACTIVITY</Text>
+              <Text style={[Type.label, { color: muted }]}>RECENT ACTIVITY</Text>
               <Pressable onPress={comingSoon('Ride history')} hitSlop={8}>
-                <Text style={[styles.recentLink, { color: ACCENT }]}>See all</Text>
+                <Text style={[styles.recentLink, { color: destructive }]}>See all</Text>
               </Pressable>
             </View>
             {rides.slice(0, 3).map((r) => (
@@ -653,10 +563,9 @@ export default function AccountScreen() {
           onPress={() => setSignOutConfirmOpen(true)}
           style={({ pressed }) => [
             styles.signOut,
-            { borderColor: `${destructive}66` },
+            { borderColor: divider },
             pressed && { opacity: 0.88 },
           ]}>
-          <Ionicons name="log-out-outline" size={20} color={destructive} />
           <Text style={[styles.signOutLabel, { color: destructive }]}>Log out</Text>
         </Pressable>
 
@@ -696,13 +605,6 @@ export default function AccountScreen() {
           if (!signOutBusy) setSignOutConfirmOpen(false);
         }}
         onConfirm={() => void onSignOut()}
-        colors={{
-          text: onSurface,
-          muted,
-          cardBg,
-          divider,
-          destructive,
-        }}
       />
     </ThemedView>
   );
@@ -713,9 +615,10 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingHorizontal: 20,
-    paddingTop: 12,
-    paddingBottom: 40,
+    paddingHorizontal: 16,
+    width: '100%',
+    maxWidth: 560,
+    alignSelf: 'center',
   },
   recentBlock: {
     marginBottom: 8,
@@ -724,62 +627,54 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 12,
-    paddingHorizontal: 4,
-  },
-  recentTitle: {
-    fontSize: 12,
-    fontWeight: '800',
-    letterSpacing: 1.1,
+    marginBottom: 8,
+    paddingHorizontal: 8,
   },
   recentLink: {
+    fontFamily: FontFamily.bold,
     fontSize: 13,
-    fontWeight: '800',
   },
   footerSpacer: {
     height: 8,
   },
   signOut: {
-    flexDirection: 'row',
+    height: 52,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 10,
-    paddingVertical: 14,
-    borderRadius: 16,
-    borderWidth: StyleSheet.hairlineWidth * 2,
-    marginBottom: 14,
+    borderRadius: 18,
+    borderWidth: 1.5,
+    marginBottom: 10,
   },
   signOutLabel: {
+    fontFamily: FontFamily.bold,
     fontSize: 16,
-    fontWeight: '800',
   },
   deleteBtn: {
     alignItems: 'center',
-    paddingVertical: 14,
-    marginBottom: 12,
+    paddingVertical: 12,
+    marginBottom: 6,
   },
   deleteLabel: {
+    fontFamily: FontFamily.semibold,
     fontSize: 14,
-    fontWeight: '700',
     textDecorationLine: 'underline',
   },
   note: {
     fontSize: 12,
     textAlign: 'center',
     lineHeight: 18,
-    marginBottom: 24,
+    marginBottom: 12,
   },
   noResults: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
     padding: 14,
-    borderRadius: 14,
-    marginBottom: 18,
+    borderRadius: 16,
+    marginBottom: 16,
   },
   noResultsText: {
     flex: 1,
     fontSize: 14,
-    fontWeight: '600',
   },
 });

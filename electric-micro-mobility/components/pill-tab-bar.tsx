@@ -2,33 +2,17 @@ import type { Tabs } from 'expo-router';
 import React, { memo, type ComponentProps } from 'react';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { Colors } from '@/constants/theme';
-import { useColorScheme } from '@/hooks/use-color-scheme';
+import { FontFamily } from '@/constants/theme';
+import { TAB_BAR_HEIGHT, useWayfinder } from '@/hooks/use-wayfinder';
 
 /** expo-router bundles its own React Navigation, so take the props type from its `Tabs`. */
 export type BottomTabBarProps = Parameters<NonNullable<ComponentProps<typeof Tabs>['tabBar']>>[0];
 
-const ACTIVE_PILL = '#FF4B41';
-
 function PillTabBarInner({ state, descriptors, emitter, navigateToTab, insets }: BottomTabBarProps) {
-  const colorScheme = useColorScheme() ?? 'light';
-  const theme = Colors[colorScheme];
-  const barBg = theme.background;
-  const inactive = theme.tabIconDefault;
-  const borderTop = colorScheme === 'dark' ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)';
+  const { c } = useWayfinder();
 
   return (
-    <View
-      style={[
-        styles.bar,
-        {
-          backgroundColor: barBg,
-          borderTopColor: borderTop,
-          paddingBottom: Math.max(insets.bottom, 10),
-          paddingTop: 8,
-        },
-        colorScheme === 'dark' && styles.barDark,
-      ]}>
+    <View style={[styles.bar, { backgroundColor: c.inverse, bottom: Math.max(insets.bottom, 12) }]}>
       {state.routes.map((route, index) => {
         const { options } = descriptors[route.key];
         const label = (options.title ?? route.name) as string;
@@ -52,13 +36,11 @@ function PillTabBarInner({ state, descriptors, emitter, navigateToTab, insets }:
           });
         };
 
-        const color = isFocused ? '#FFFFFF' : inactive;
-        const size = 22;
         const iconEl =
           options.tabBarIcon?.({
             focused: isFocused,
-            color,
-            size,
+            color: isFocused ? c.onAccent : c.inverseMuted,
+            size: isFocused ? 20 : 22,
           }) ?? null;
 
         return (
@@ -66,7 +48,7 @@ function PillTabBarInner({ state, descriptors, emitter, navigateToTab, insets }:
             key={route.key}
             accessibilityRole="button"
             accessibilityState={isFocused ? { selected: true } : {}}
-            accessibilityLabel={options.tabBarAccessibilityLabel}
+            accessibilityLabel={options.tabBarAccessibilityLabel ?? label}
             testID={options.tabBarButtonTestID}
             onPress={onPress}
             onLongPress={onLongPress}
@@ -76,22 +58,13 @@ function PillTabBarInner({ state, descriptors, emitter, navigateToTab, insets }:
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
               );
             }}
-            style={styles.tabPressable}>
+            style={isFocused ? [styles.active, { backgroundColor: c.accent }] : styles.inactive}>
+            {iconEl}
             {isFocused ? (
-              <View style={styles.pillActive}>
-                {iconEl}
-                <Text style={styles.labelActive} numberOfLines={1}>
-                  {label}
-                </Text>
-              </View>
-            ) : (
-              <View style={styles.tabInner}>
-                {iconEl}
-                <Text style={[styles.labelInactive, { color: inactive }]} numberOfLines={1}>
-                  {label}
-                </Text>
-              </View>
-            )}
+              <Text style={[styles.label, { color: c.onAccent }]} numberOfLines={1}>
+                {label}
+              </Text>
+            ) : null}
           </Pressable>
         );
       })}
@@ -104,73 +77,34 @@ export const PillTabBar = memo(PillTabBarInner);
 
 const styles = StyleSheet.create({
   bar: {
+    position: 'absolute',
+    left: 16,
+    right: 16,
+    height: TAB_BAR_HEIGHT,
+    borderRadius: TAB_BAR_HEIGHT / 2,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 6,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: -4 },
-        shadowOpacity: 0.07,
-        shadowRadius: 12,
-      },
-      android: { elevation: 8 },
-      default: {},
-    }),
-    borderTopWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: 8,
   },
-  barDark: {
-    ...Platform.select({
-      ios: {
-        shadowOpacity: 0.25,
-      },
-      android: { elevation: 12 },
-      default: {},
-    }),
+  active: {
+    height: 48,
+    paddingHorizontal: 14,
+    borderRadius: 24,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
-  tabPressable: {
+  // Shrinks on narrow phones so the active pill never pushes a tab off the bar.
+  inactive: {
     flex: 1,
+    maxWidth: 48,
+    height: 48,
     alignItems: 'center',
     justifyContent: 'center',
-    minWidth: 0,
   },
-  pillActive: {
-    flexDirection: 'column',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: ACTIVE_PILL,
-    borderRadius: 999,
-    paddingVertical: 10,
-    paddingHorizontal: 10,
-    gap: 5,
-    minHeight: 56,
-    alignSelf: 'stretch',
-    marginHorizontal: 3,
-    maxWidth: '100%',
-  },
-  tabInner: {
-    flexDirection: 'column',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 10,
-    paddingHorizontal: 4,
-    gap: 5,
-    minHeight: 56,
-  },
-  labelActive: {
-    color: '#FFFFFF',
-    fontSize: 10,
-    fontWeight: '700',
-    letterSpacing: 0.4,
-    marginTop: 2,
-    textTransform: 'uppercase',
-  },
-  labelInactive: {
-    fontSize: 10,
-    fontWeight: '600',
-    letterSpacing: 0.4,
-    marginTop: 2,
-    textTransform: 'uppercase',
+  label: {
+    fontFamily: FontFamily.bold,
+    fontSize: 14,
   },
 });

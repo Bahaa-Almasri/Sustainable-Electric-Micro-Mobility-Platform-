@@ -12,49 +12,55 @@ export const OSM_LEAFLET_HTML = `<!DOCTYPE html>
     html, body { margin:0; padding:0; height:100%; width:100%; overflow:hidden; }
     #map { position:absolute; top:0; left:0; right:0; bottom:0; }
     .leaflet-control-attribution { font-size:10px; max-width:50%; white-space:normal; }
-    .station-marker-wrap {
-      width: 44px;
-      height: 44px;
-      position: relative;
-      transform: translate(-22px, -42px);
-    }
-    .station-marker-pin {
-      width: 44px;
-      height: 44px;
-      border-radius: 16px;
-      background: linear-gradient(135deg, #D90429, #1B4332);
-      border: 2px solid rgba(255,255,255,0.95);
-      box-shadow: 0 8px 20px rgba(17, 24, 28, 0.25);
-      color: #fff;
+    .leaflet-top.leaflet-left { top: 112px; }
+    body.ride .leaflet-control-zoom { display: none; }
+    body { --surface:#FAF9F6; --text:#121212; --muted:#5E5B55; --accent:#FF4B41; --on-accent:#121212; --halo:rgba(255,75,65,0.22); background:#E7E4DD; }
+    body.dark { --surface:#1C1B19; --text:#F1EFEA; --muted:#A39F97; --accent:#FF5A4F; --halo:rgba(255,90,79,0.25); background:#181816; }
+    body.dark .leaflet-tile-pane { filter: invert(1) hue-rotate(180deg) brightness(0.82) contrast(0.86) saturate(0.55); }
+    body.dark .leaflet-container { background:#181816; }
+    .station-pin {
+      box-sizing: border-box;
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      background: var(--surface);
+      border: 2.5px solid var(--text);
+      color: var(--text);
       font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      font-size: 15px;
+      font-size: 14px;
       font-weight: 800;
       display: flex;
       align-items: center;
       justify-content: center;
       user-select: none;
+      position: relative;
     }
-    .station-marker-pin.parking-mode {
-      background: linear-gradient(135deg, #11181C, #FF4B41);
-      border-color: rgba(255,255,255,0.92);
+    .station-pin.empty { border-style: dashed; border-color: var(--muted); color: var(--muted); }
+    .station-pin.selected {
+      width: 48px;
+      height: 48px;
+      margin: -7px 0 0 -7px;
+      background: var(--accent);
+      border: 0;
+      color: var(--on-accent);
+      font-size: 20px;
+      box-shadow: 0 0 0 8px var(--halo);
     }
-    .station-marker-badge {
+    .station-pin.parking { background: var(--text); color: var(--surface); }
+    .station-pin-badge {
       position: absolute;
-      top: -5px;
-      right: -6px;
-      min-width: 20px;
-      height: 20px;
-      padding: 0 5px;
-      border-radius: 999px;
-      background: #FF4B41;
-      border: 2px solid #fff;
-      color: #fff;
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      top: -7px;
+      right: -9px;
+      min-width: 18px;
+      height: 18px;
+      padding: 0 4px;
+      box-sizing: border-box;
+      border-radius: 9px;
+      background: var(--accent);
+      color: var(--on-accent);
       font-size: 11px;
-      font-weight: 800;
-      line-height: 16px;
+      line-height: 18px;
       text-align: center;
-      box-shadow: 0 6px 12px rgba(17, 24, 28, 0.2);
     }
   </style>
 </head>
@@ -104,29 +110,28 @@ export const OSM_LEAFLET_HTML = `<!DOCTYPE html>
       }
       var payloadStationMarkerMode = 'browse';
       var payloadRideMode = false;
+      var payloadSelectedStationId = null;
       function stationIcon(station) {
-        var mode = payloadStationMarkerMode || 'browse';
-        var isParking = mode === 'parking';
-        var letter = isParking ? 'P' : 'S';
-        var badgeText = '';
+        var isParking = (payloadStationMarkerMode || 'browse') === 'parking';
+        var classes = 'station-pin';
+        var label = '';
+        var badge = '';
         if (isParking) {
-          var ps = station.available_parking_spots;
-          if (typeof ps === 'number' && ps > 0) badgeText = String(ps);
+          classes += ' parking';
+          label = 'P';
+          var spots = station.available_parking_spots;
+          if (typeof spots === 'number' && spots > 0) badge = '<div class="station-pin-badge">' + spots + '</div>';
         } else {
-          var av = station.available_vehicles;
-          if (typeof av === 'number' && av > 0) badgeText = String(av);
+          var available = typeof station.available_vehicles === 'number' ? station.available_vehicles : 0;
+          label = String(available);
+          if (available === 0) classes += ' empty';
+          if (station.station_id === payloadSelectedStationId) classes += ' selected';
         }
-        var pinClass = 'station-marker-pin' + (isParking ? ' parking-mode' : '');
         return L.divIcon({
           className: '',
-          html:
-            '<div class="station-marker-wrap">' +
-            '<div class="' + pinClass + '">' + letter + '</div>' +
-            (badgeText ? ('<div class="station-marker-badge">' + badgeText + '</div>') : '') +
-            '</div>',
-          iconSize: [44, 44],
-          iconAnchor: [22, 42],
-          popupAnchor: [0, -42]
+          html: '<div class="' + classes + '">' + label + badge + '</div>',
+          iconSize: [34, 34],
+          iconAnchor: [17, 17]
         });
       }
       function setStations(stations) {
@@ -148,7 +153,7 @@ export const OSM_LEAFLET_HTML = `<!DOCTYPE html>
         var ride = !!payloadRideMode;
         L.circleMarker([userLocation.latitude, userLocation.longitude], {
           radius: ride ? 10 : 8,
-          fillColor: ride ? '#FF4B41' : '#2B7FFF',
+          fillColor: ride ? '#FF4B41' : (document.body.classList.contains('dark') ? '#6E97FF' : '#2F6BFF'),
           color: '#FFFFFF',
           weight: ride ? 3 : 3,
           opacity: 1,
@@ -164,6 +169,9 @@ export const OSM_LEAFLET_HTML = `<!DOCTYPE html>
           payloadStationMarkerMode = payload.stationMarkerMode;
         }
         payloadRideMode = payload.rideMode === true;
+        payloadSelectedStationId = payload.selectedStationId || null;
+        document.body.classList.toggle('dark', payload.isDark === true);
+        document.body.classList.toggle('ride', payloadRideMode);
         if (payload.stations) setStations(payload.stations);
         setUserLocation(payload.userLocation || null);
       }
@@ -208,6 +216,8 @@ export type MapPayloadOptions = {
   stationMarkerMode?: StationMarkerMode;
   /** Active ride map: stronger user location styling. */
   rideMode?: boolean;
+  isDark?: boolean;
+  selectedStationId?: string | null;
 };
 
 export function serializeMapPayload(
@@ -230,6 +240,8 @@ export function serializeMapPayload(
     fitCamera: options?.fitCamera === true,
     stationMarkerMode: options?.stationMarkerMode ?? 'browse',
     rideMode: options?.rideMode === true,
+    isDark: options?.isDark === true,
+    selectedStationId: options?.selectedStationId ?? null,
     region: {
       latitude: region.latitude,
       longitude: region.longitude,

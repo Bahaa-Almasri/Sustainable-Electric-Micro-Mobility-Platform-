@@ -2,11 +2,11 @@ import { Ionicons } from '@expo/vector-icons';
 import type { ReactNode } from 'react';
 import { Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 
+import { FontFamily } from '@/constants/theme';
+
 export type SettingsRowProps = {
   title: string;
   subtitle?: string;
-  icon?: keyof typeof Ionicons.glyphMap;
-  iconColor?: string;
   onPress?: () => void;
   /** When false, row is omitted (e.g. search). */
   visible?: boolean;
@@ -14,7 +14,6 @@ export type SettingsRowProps = {
   disabled?: boolean;
   right?: ReactNode;
   badge?: string;
-  badgeVariant?: 'default' | 'new' | 'recommended';
   isFirst?: boolean;
   isLast?: boolean;
   divider?: boolean;
@@ -30,15 +29,12 @@ export type SettingsRowProps = {
 export function SettingsRow({
   title,
   subtitle,
-  icon,
-  iconColor,
   onPress,
   visible = true,
   showChevron = true,
   disabled = false,
   right,
   badge,
-  badgeVariant = 'default',
   isFirst,
   isLast,
   divider = true,
@@ -56,24 +52,14 @@ export function SettingsRow({
         isLast && styles.rowLast,
         style,
       ]}>
-      {icon ? (
-        <View style={[styles.iconCircle, { backgroundColor: `${iconColor ?? '#FF4B41'}18` }]}>
-          <Ionicons name={icon} size={18} color={iconColor ?? '#FF4B41'} />
-        </View>
-      ) : null}
       <View style={styles.textCol}>
         <View style={styles.titleLine}>
           <Text style={[styles.title, { color: colors.text }]} numberOfLines={2}>
             {title}
           </Text>
           {badge ? (
-            <View
-              style={[
-                styles.badge,
-                badgeVariant === 'new' && styles.badgeNew,
-                badgeVariant === 'recommended' && styles.badgeRec,
-              ]}>
-              <Text style={styles.badgeText}>{badge}</Text>
+            <View style={[styles.badge, { borderColor: colors.muted }]}>
+              <Text style={[styles.badgeText, { color: colors.muted }]}>{badge}</Text>
             </View>
           ) : null}
         </View>
@@ -121,26 +107,20 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 14,
-    paddingHorizontal: 14,
+    paddingVertical: 13,
+    paddingHorizontal: 16,
     gap: 12,
+    minHeight: 48,
   },
   rowFirst: {},
   rowLast: {},
   pressed: {
-    opacity: 0.92,
-  },
-  iconCircle: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
+    opacity: 0.8,
   },
   textCol: {
     flex: 1,
     minWidth: 0,
-    gap: 3,
+    gap: 2,
   },
   titleLine: {
     flexDirection: 'row',
@@ -149,14 +129,13 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
   },
   title: {
+    fontFamily: FontFamily.semibold,
     fontSize: 15,
-    fontWeight: '600',
     flexShrink: 1,
   },
   subtitle: {
+    fontFamily: FontFamily.regular,
     fontSize: 13,
-    fontWeight: '500',
-    opacity: 0.92,
   },
   right: {
     flexDirection: 'row',
@@ -165,28 +144,19 @@ const styles = StyleSheet.create({
   },
   chevron: {
     marginLeft: 2,
-    opacity: 0.85,
   },
   hairline: {
-    height: StyleSheet.hairlineWidth,
-    marginLeft: 62,
+    height: 1,
+    marginHorizontal: 16,
   },
   badge: {
     paddingHorizontal: 8,
-    paddingVertical: 3,
+    paddingVertical: 2,
     borderRadius: 999,
-    backgroundColor: 'rgba(255,75,65,0.12)',
-  },
-  badgeNew: {
-    backgroundColor: 'rgba(33,150,243,0.14)',
-  },
-  badgeRec: {
-    backgroundColor: 'rgba(76,175,80,0.14)',
+    borderWidth: 1,
   },
   badgeText: {
-    fontSize: 10,
-    fontWeight: '800',
-    letterSpacing: 0.4,
-    color: '#C62828',
+    fontFamily: FontFamily.bold,
+    fontSize: 11,
   },
 });
