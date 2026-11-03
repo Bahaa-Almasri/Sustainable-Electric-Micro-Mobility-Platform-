@@ -4,6 +4,9 @@ ASP.NET Core 9 API for the Expo app: auth, vehicles, stations, rides, reservatio
 support, and one aggregate endpoint per screen. PostgreSQL on [Neon](https://neon.tech) through
 EF Core; Hangfire for background jobs; SignalR for realtime events.
 
+**New here? Read [ARCHITECTURE.md](ARCHITECTURE.md)** — the full explanation of how and why the
+backend is built the way it is.
+
 ## Layout
 
 | Path | Role |

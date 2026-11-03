@@ -7,7 +7,7 @@ A cross-platform client plus API for discovering and using shared electric micro
 | Path | Role |
 |------|------|
 | `electric-micro-mobility/` | Expo Router app (Expo SDK 58, React 19) |
-| `backend/` | ASP.NET Core 9 API, EF Core + Npgsql, Hangfire, SignalR, JWT auth — see [backend/README.md](backend/README.md) |
+| `backend/` | ASP.NET Core 9 API, EF Core + Npgsql, Hangfire, SignalR, JWT auth — see [backend/README.md](backend/README.md) and the architecture guide [backend/ARCHITECTURE.md](backend/ARCHITECTURE.md) |
 
 ## Prerequisites
 
