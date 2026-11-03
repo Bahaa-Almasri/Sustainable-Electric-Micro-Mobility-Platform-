@@ -1,7 +1,8 @@
 import type { ReactNode } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
-import { cardShadow } from '@/components/account/account-theme';
+import { Type } from '@/constants/theme';
+import { useWayfinder } from '@/hooks/use-wayfinder';
 
 type Props = {
   title: string;
@@ -15,11 +16,12 @@ type Props = {
 };
 
 export function SettingsSection({ title, titleColor, surfaceColor, children, footer, visible = true }: Props) {
+  const { c } = useWayfinder();
   if (!visible) return null;
   return (
     <View style={styles.wrap}>
-      <Text style={[styles.title, titleColor ? { color: titleColor } : null]}>{title}</Text>
-      <View style={[styles.card, cardShadow, { backgroundColor: surfaceColor }]}>{children}</View>
+      <Text style={[Type.label, styles.title, titleColor ? { color: titleColor } : null]}>{title}</Text>
+      <View style={[styles.card, { backgroundColor: surfaceColor, borderColor: c.line }]}>{children}</View>
       {footer ? <View style={styles.footer}>{footer}</View> : null}
     </View>
   );
@@ -27,18 +29,15 @@ export function SettingsSection({ title, titleColor, surfaceColor, children, foo
 
 const styles = StyleSheet.create({
   wrap: {
-    marginBottom: 22,
+    marginBottom: 16,
   },
   title: {
-    fontSize: 12,
-    fontWeight: '800',
-    letterSpacing: 1.1,
-    marginBottom: 10,
-    marginLeft: 4,
-    opacity: 0.75,
+    marginBottom: 8,
+    marginLeft: 8,
   },
   card: {
-    borderRadius: 16,
+    borderRadius: 20,
+    borderWidth: 1,
     overflow: 'hidden',
   },
   footer: {

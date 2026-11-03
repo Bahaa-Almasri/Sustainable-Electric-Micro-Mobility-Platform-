@@ -6,7 +6,7 @@ import { OSM_LEAFLET_HTML, serializeMapPayload } from '@/components/osm-leaflet-
 import type { OsmMapViewProps, OsmMapViewRef } from '@/components/osm-map-types';
 
 export const OsmMapView = forwardRef<OsmMapViewRef, OsmMapViewProps>(function OsmMapView(
-  { style, region, stations, userLocation, onStationPress, stationMarkerMode = 'browse' },
+  { style, region, stations, userLocation, onStationPress, stationMarkerMode = 'browse', isDark = false, selectedStationId = null },
   ref
 ) {
   const webRef = useRef<WebView>(null);
@@ -25,11 +25,13 @@ export const OsmMapView = forwardRef<OsmMapViewRef, OsmMapViewProps>(function Os
         fitCamera,
         stationMarkerMode,
         rideMode,
+        isDark,
+        selectedStationId,
       });
       const injected = `try{window.__osmReceive(${JSON.stringify(str)});}catch(e){}true;`;
       webRef.current?.injectJavaScript(injected);
     },
-    [stationMarkerMode, rideMode]
+    [stationMarkerMode, rideMode, isDark, selectedStationId]
   );
 
   useImperativeHandle(

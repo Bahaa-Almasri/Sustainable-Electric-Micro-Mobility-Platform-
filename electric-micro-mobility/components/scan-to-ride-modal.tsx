@@ -4,11 +4,11 @@ import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 import { Modal, Platform, Pressable, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
+import { FontFamily } from '@/constants/theme';
+import { useWayfinder } from '@/hooks/use-wayfinder';
 
 type ScanToRideModalProps = {
   visible: boolean;
-  accentColor: string;
-  isDark: boolean;
   expectedPayloads: string[];
   busy: boolean;
   onClose: () => void;
@@ -31,8 +31,6 @@ const SKIP_QR_MATCH_IN_DEV = typeof __DEV__ !== 'undefined' && __DEV__;
 
 export const ScanToRideModal = memo(function ScanToRideModal({
   visible,
-  accentColor,
-  isDark,
   expectedPayloads,
   busy,
   onClose,
@@ -142,16 +140,17 @@ export const ScanToRideModal = memo(function ScanToRideModal({
     !permissionDenied &&
     !fatalError;
 
-  const muted = isDark ? '#9BA1A6' : '#687076';
+  const { c } = useWayfinder();
+  const muted = c.muted;
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <View style={styles.overlay}>
-        <View style={[styles.card, { backgroundColor: isDark ? '#11181C' : '#FFFFFF' }]}>
+        <View style={[styles.card, { backgroundColor: c.bg }]}>
           <View style={styles.header}>
             <ThemedText style={styles.title}>Scan to Ride</ThemedText>
             <Pressable onPress={onClose} style={styles.closeBtn}>
-              <Ionicons name="close" size={20} color={isDark ? '#ECEDEE' : '#11181C'} />
+              <Ionicons name="close" size={20} color={c.text} />
             </Pressable>
           </View>
 
@@ -161,12 +160,12 @@ export const ScanToRideModal = memo(function ScanToRideModal({
           </ThemedText>
 
           {scanError ? (
-            <View style={[styles.scanErrorBanner, { backgroundColor: isDark ? 'rgba(217,4,41,0.2)' : 'rgba(217,4,41,0.1)' }]}>
-              <ThemedText style={[styles.scanErrorText, { color: '#D90429' }]}>{scanError}</ThemedText>
+            <View style={[styles.scanErrorBanner, { backgroundColor: c.accentSoft }]}>
+              <ThemedText style={[styles.scanErrorText, { color: c.accentText }]}>{scanError}</ThemedText>
             </View>
           ) : null}
 
-          <View style={[styles.cameraWrap, { borderColor: isDark ? 'rgba(255,255,255,0.14)' : 'rgba(17,24,28,0.12)' }]}>
+          <View style={[styles.cameraWrap, { borderColor: c.line }]}>
             {cameraReady ? (
               <CameraView
                 style={styles.camera}
@@ -179,7 +178,7 @@ export const ScanToRideModal = memo(function ScanToRideModal({
               />
             ) : (
               <View style={styles.placeholder}>
-                <Ionicons name="qr-code-outline" size={34} color={isDark ? '#ECEDEE' : '#11181C'} />
+                <Ionicons name="qr-code-outline" size={34} color={c.text} />
                 <ThemedText style={styles.placeholderText}>
                   {fatalError ??
                     (permission?.granted ? 'Preparing camera...' : 'Requesting camera permission...')}
@@ -193,7 +192,7 @@ export const ScanToRideModal = memo(function ScanToRideModal({
               style={({ pressed }) => [
                 styles.devSkipBtn,
                 {
-                  borderColor: isDark ? 'rgba(255,255,255,0.2)' : 'rgba(17,24,28,0.15)',
+                  borderColor: c.line,
                   opacity: pressed || busy ? 0.85 : 1,
                 },
               ]}
@@ -210,7 +209,7 @@ export const ScanToRideModal = memo(function ScanToRideModal({
               style={({ pressed }) => [
                 styles.secondaryBtn,
                 {
-                  borderColor: isDark ? 'rgba(255,255,255,0.25)' : 'rgba(17,24,28,0.2)',
+                  borderColor: c.text,
                   opacity: pressed ? 0.86 : 1,
                 },
               ]}
@@ -221,11 +220,11 @@ export const ScanToRideModal = memo(function ScanToRideModal({
             <Pressable
               style={({ pressed }) => [
                 styles.primaryBtn,
-                { backgroundColor: accentColor, opacity: pressed || busy ? 0.9 : 1 },
+                { backgroundColor: c.accent, opacity: pressed || busy ? 0.9 : 1 },
               ]}
               onPress={onPrimaryPress}
               disabled={busy}>
-              <ThemedText style={styles.primaryText}>
+              <ThemedText style={[styles.primaryText, { color: c.onAccent }]}>
                 {permissionDenied || !permission?.granted
                   ? 'Try again'
                   : 'Clear & scan again'}
@@ -263,7 +262,7 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 20,
-    fontWeight: '800',
+    fontFamily: FontFamily.display,
   },
   subtitle: {
     opacity: 0.76,
@@ -284,7 +283,7 @@ const styles = StyleSheet.create({
   },
   scanErrorText: {
     fontSize: 12,
-    fontWeight: '700',
+    fontFamily: FontFamily.bold,
     textAlign: 'center',
   },
   cameraWrap: {
@@ -307,7 +306,7 @@ const styles = StyleSheet.create({
   placeholderText: {
     textAlign: 'center',
     opacity: 0.8,
-    fontWeight: '600',
+    fontFamily: FontFamily.semibold,
   },
   devSkipBtn: {
     borderWidth: 1,
@@ -318,7 +317,7 @@ const styles = StyleSheet.create({
   },
   devSkipText: {
     fontSize: 12,
-    fontWeight: '700',
+    fontFamily: FontFamily.bold,
     textAlign: 'center',
   },
   actionsRow: {
@@ -336,7 +335,7 @@ const styles = StyleSheet.create({
   },
   secondaryText: {
     fontSize: 14,
-    fontWeight: '700',
+    fontFamily: FontFamily.bold,
   },
   primaryBtn: {
     flex: 1,
@@ -346,9 +345,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   primaryText: {
-    color: '#fff',
     fontSize: 14,
-    fontWeight: '800',
+    fontFamily: FontFamily.display,
   },
   webHint: {
     opacity: 0.62,

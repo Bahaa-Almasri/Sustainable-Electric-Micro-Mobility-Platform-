@@ -26,4 +26,6 @@ export type OsmMapViewProps = {
   onStationPress: (stationId: string) => void;
   /** Browse: badge = available vehicles. Parking: badge = free parking spots; pin shows P. */
   stationMarkerMode?: StationMarkerMode;
+  isDark?: boolean;
+  selectedStationId?: string | null;
 };

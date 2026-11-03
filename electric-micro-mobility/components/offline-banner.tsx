@@ -3,6 +3,8 @@ import { useNetworkState } from 'expo-network';
 import { StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { FontFamily } from '@/constants/theme';
+
 /**
  * App-wide banner shown when the device has no internet, so empty or stuck screens
  * read as a connection problem rather than an app bug.
@@ -37,7 +39,7 @@ const styles = StyleSheet.create({
     gap: 8,
     paddingHorizontal: 16,
     paddingBottom: 10,
-    backgroundColor: '#2B2F33',
+    backgroundColor: '#121212',
     zIndex: 1000,
     elevation: 1000,
   },
@@ -45,6 +47,6 @@ const styles = StyleSheet.create({
     flex: 1,
     color: '#FFFFFF',
     fontSize: 14,
-    fontWeight: '600',
+    fontFamily: FontFamily.semibold,
   },
 });

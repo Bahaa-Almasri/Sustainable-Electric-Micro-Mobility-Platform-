@@ -1,13 +1,14 @@
 import { Ionicons } from '@expo/vector-icons';
 import { memo } from 'react';
-import { Modal, Pressable, StyleSheet, View } from 'react-native';
+import { Modal, Pressable, StyleSheet, Switch, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { ThemedText } from '@/components/themed-text';
+import { Button, IconButton } from '@/components/wayfinder/ui';
+import { Type } from '@/constants/theme';
+import { useWayfinder } from '@/hooks/use-wayfinder';
 
 type MapStationsFilterSheetProps = {
   visible: boolean;
-  isDark: boolean;
-  accentColor: string;
   showEmptyStations: boolean;
   visibleStationsCount: number;
   totalStationsCount: number;
@@ -18,8 +19,6 @@ type MapStationsFilterSheetProps = {
 
 export const MapStationsFilterSheet = memo(function MapStationsFilterSheet({
   visible,
-  isDark,
-  accentColor,
   showEmptyStations,
   visibleStationsCount,
   totalStationsCount,
@@ -27,191 +26,63 @@ export const MapStationsFilterSheet = memo(function MapStationsFilterSheet({
   onToggleShowEmptyStations,
   onReset,
 }: MapStationsFilterSheetProps) {
-  const cardBg = isDark ? '#151718' : '#FFFFFF';
-  const border = isDark ? 'rgba(255,255,255,0.14)' : 'rgba(17,24,28,0.1)';
-  const muted = isDark ? '#9BA1A6' : '#687076';
+  const { c } = useWayfinder();
+  const { bottom } = useSafeAreaInsets();
 
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <Pressable style={styles.backdrop} onPress={onClose}>
-        <Pressable
-          style={[styles.card, { backgroundColor: cardBg, borderColor: border }]}
-          onPress={() => {}}
-          accessibilityRole="none">
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+      <View style={[styles.backdrop, { backgroundColor: c.backdrop }]}>
+        <Pressable style={StyleSheet.absoluteFill} onPress={onClose} accessibilityLabel="Close map filters" />
+        <View style={[styles.sheet, { backgroundColor: c.bg, paddingBottom: bottom + 20 }]}>
+          <View style={[styles.grabber, { backgroundColor: c.line }]} />
           <View style={styles.headerRow}>
-            <View style={styles.titleRow}>
-              <Ionicons name="options-outline" size={18} color={accentColor} />
-              <ThemedText style={styles.title}>Map Filters</ThemedText>
+            <View style={styles.headerText}>
+              <Text style={[Type.detailTitle, { color: c.text }]}>Map Filters</Text>
+              <Text style={[Type.secondary, { color: c.muted }]}>
+                Showing {visibleStationsCount} of {totalStationsCount} stations
+              </Text>
             </View>
-            <Pressable onPress={onClose} style={styles.iconBtn}>
-              <Ionicons name="close" size={20} color={muted} />
-            </Pressable>
-          </View>
-
-          <View style={[styles.infoPill, { backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(17,24,28,0.05)' }]}>
-            <ThemedText style={styles.infoText}>
-              Showing {visibleStationsCount} of {totalStationsCount} stations
-            </ThemedText>
-          </View>
-
-          <Pressable
-            onPress={onToggleShowEmptyStations}
-            style={({ pressed }) => [
-              styles.toggleRow,
-              {
-                borderColor: border,
-                backgroundColor: isDark ? 'rgba(255,255,255,0.03)' : '#FAFAFB',
-                opacity: pressed ? 0.88 : 1,
-              },
-            ]}>
-            <View style={styles.toggleCopy}>
-              <ThemedText style={styles.toggleTitle}>Show Empty Stations</ThemedText>
-              <ThemedText style={styles.toggleSubtitle}>Include stations with 0 available vehicles</ThemedText>
-            </View>
-            <View
-              style={[
-                styles.switchTrack,
-                { backgroundColor: showEmptyStations ? accentColor : isDark ? '#2A2E30' : '#D7DBDF' },
-              ]}>
-              <View style={[styles.switchKnob, showEmptyStations ? styles.switchKnobOn : styles.switchKnobOff]} />
-            </View>
-          </Pressable>
-
-          <View style={styles.actionsRow}>
-            <Pressable
-              onPress={onReset}
-              style={({ pressed }) => [
-                styles.resetBtn,
-                { borderColor: border, opacity: pressed ? 0.86 : 1 },
-              ]}>
-              <ThemedText style={[styles.resetText, { color: accentColor }]}>Reset</ThemedText>
-            </Pressable>
-            <Pressable
+            <IconButton
+              label="Close"
+              variant="line"
               onPress={onClose}
-              style={({ pressed }) => [
-                styles.applyBtn,
-                { backgroundColor: accentColor, opacity: pressed ? 0.9 : 1 },
-              ]}>
-              <ThemedText style={styles.applyText}>Apply</ThemedText>
-            </Pressable>
+              icon={<Ionicons name="close" size={20} color={c.text} />}
+            />
           </View>
-        </Pressable>
-      </Pressable>
+
+          <View style={[styles.toggleRow, { borderColor: c.line }]}>
+            <View style={styles.headerText}>
+              <Text style={[Type.body, { color: c.text }]}>Show Empty Stations</Text>
+              <Text style={[Type.secondary, { color: c.muted }]}>Include stations with 0 available vehicles</Text>
+            </View>
+            <Switch
+              accessibilityLabel="Show Empty Stations"
+              value={showEmptyStations}
+              onValueChange={onToggleShowEmptyStations}
+              trackColor={{ false: c.line, true: c.accent }}
+              thumbColor={c.surface}
+              ios_backgroundColor={c.line}
+            />
+          </View>
+
+          <View style={styles.actions}>
+            <Button label="Reset" variant="secondary" onPress={onReset} height={50} radius={16} style={styles.reset} />
+            <Button label="Apply" onPress={onClose} height={50} radius={16} style={styles.apply} />
+          </View>
+        </View>
+      </View>
     </Modal>
   );
 });
 
 const styles = StyleSheet.create({
-  backdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(8,12,14,0.45)',
-    justifyContent: 'flex-start',
-    paddingTop: 88,
-    paddingHorizontal: 14,
-  },
-  card: {
-    borderRadius: 16,
-    borderWidth: 1,
-    padding: 12,
-    gap: 12,
-  },
-  headerRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  titleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  title: {
-    fontSize: 16,
-    fontWeight: '800',
-  },
-  iconBtn: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  infoPill: {
-    borderRadius: 999,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    alignSelf: 'flex-start',
-  },
-  infoText: {
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  toggleRow: {
-    borderRadius: 12,
-    borderWidth: 1,
-    padding: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 12,
-  },
-  toggleCopy: {
-    flex: 1,
-    gap: 4,
-  },
-  toggleTitle: {
-    fontSize: 14,
-    fontWeight: '800',
-  },
-  toggleSubtitle: {
-    fontSize: 12,
-    opacity: 0.72,
-  },
-  switchTrack: {
-    width: 46,
-    height: 28,
-    borderRadius: 999,
-    padding: 3,
-    justifyContent: 'center',
-  },
-  switchKnob: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    backgroundColor: '#fff',
-  },
-  switchKnobOn: {
-    alignSelf: 'flex-end',
-  },
-  switchKnobOff: {
-    alignSelf: 'flex-start',
-  },
-  actionsRow: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-  resetBtn: {
-    flex: 1,
-    borderWidth: 1,
-    borderRadius: 11,
-    minHeight: 42,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  resetText: {
-    fontSize: 14,
-    fontWeight: '800',
-  },
-  applyBtn: {
-    flex: 1,
-    borderRadius: 11,
-    minHeight: 42,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  applyText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '800',
-  },
+  backdrop: { flex: 1, justifyContent: 'flex-end' },
+  sheet: { borderTopLeftRadius: 32, borderTopRightRadius: 32, paddingHorizontal: 24, paddingTop: 10, gap: 16 },
+  grabber: { width: 40, height: 5, borderRadius: 3, alignSelf: 'center' },
+  headerRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  headerText: { flex: 1, minWidth: 0 },
+  toggleRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 14, borderTopWidth: 1, borderBottomWidth: 1 },
+  actions: { flexDirection: 'row', gap: 8 },
+  reset: { flex: 1 },
+  apply: { flex: 2 },
 });

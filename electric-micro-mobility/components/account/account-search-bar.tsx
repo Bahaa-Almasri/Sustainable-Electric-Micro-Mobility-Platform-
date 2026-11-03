@@ -1,6 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import { StyleSheet, TextInput, View } from 'react-native';
 
+import { FontFamily } from '@/constants/theme';
+
 type Props = {
   value: string;
   onChangeText: (v: string) => void;
@@ -8,14 +10,13 @@ type Props = {
   colors: {
     text: string;
     muted: string;
-    searchBg: string;
   };
 };
 
 export function AccountSearchBar({ value, onChangeText, placeholder = 'Search settings', colors }: Props) {
   return (
-    <View style={[styles.wrap, { backgroundColor: colors.searchBg }]}>
-      <Ionicons name="search" size={18} color={colors.muted} style={styles.icon} />
+    <View style={[styles.wrap, { borderBottomColor: colors.text }]}>
+      <Ionicons name="search" size={18} color={colors.text} />
       <TextInput
         value={value}
         onChangeText={onChangeText}
@@ -25,6 +26,7 @@ export function AccountSearchBar({ value, onChangeText, placeholder = 'Search se
         autoCorrect={false}
         autoCapitalize="none"
         clearButtonMode="while-editing"
+        accessibilityLabel={placeholder}
       />
     </View>
   );
@@ -34,19 +36,16 @@ const styles = StyleSheet.create({
   wrap: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: 14,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    marginBottom: 18,
-    gap: 8,
-  },
-  icon: {
-    opacity: 0.85,
+    height: 44,
+    borderBottomWidth: 1.5,
+    marginHorizontal: 8,
+    marginBottom: 16,
+    gap: 10,
   },
   input: {
     flex: 1,
-    fontSize: 15,
-    fontWeight: '600',
+    fontFamily: FontFamily.medium,
+    fontSize: 16,
     paddingVertical: 0,
   },
 });

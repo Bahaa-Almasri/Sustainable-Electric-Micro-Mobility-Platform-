@@ -1,13 +1,20 @@
 import { Ionicons } from '@expo/vector-icons';
-import { memo, useEffect, useMemo, useState } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
+import { memo, useEffect, useMemo } from 'react';
+import { Modal, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { StationVehicleCard } from '@/components/station-vehicle-card';
-import { ThemedText } from '@/components/themed-text';
 import { StationVehiclesSkeleton } from '@/components/screen-skeletons';
 import { VehicleFiltersPanel } from '@/components/vehicle-filters-panel';
+import { IconButton } from '@/components/wayfinder/ui';
+import { FontFamily, Type } from '@/constants/theme';
 import { useVehicleFilters } from '@/hooks/use-vehicle-filters';
+import { useWayfinder } from '@/hooks/use-wayfinder';
+import { distanceMetersBetween } from '@/lib/geo-distance';
 import type { RidePricingCatalog, StationRow, VehicleWithState } from '@/types/entities';
+
+/** Average walking pace, for the walk-time estimate. */
+const WALK_METERS_PER_MINUTE = 80;
 
 type StationDetailsPanelProps = {
   visible: boolean;
@@ -19,13 +26,15 @@ type StationDetailsPanelProps = {
   startRideBusyVehicleId: string | null;
   activeVehicleId: string | null;
   userLocation: { latitude: number; longitude: number } | null;
-  accentColor: string;
-  isDark: boolean;
   pricingCatalog: RidePricingCatalog | null;
   onClose: () => void;
   onReserve: (vehicleId: string) => void;
   onStartRide: (vehicleId: string) => void;
 };
+
+function formatStationDistance(meters: number): string {
+  return meters < 1000 ? `${Math.round(meters)} M` : `${(meters / 1000).toFixed(1)} KM`;
+}
 
 export const StationDetailsPanel = memo(function StationDetailsPanel({
   visible,
@@ -37,18 +46,18 @@ export const StationDetailsPanel = memo(function StationDetailsPanel({
   startRideBusyVehicleId,
   activeVehicleId,
   userLocation,
-  accentColor,
-  isDark,
   pricingCatalog,
   onClose,
   onReserve,
   onStartRide,
 }: StationDetailsPanelProps) {
+  const { c } = useWayfinder();
+  const { bottom } = useSafeAreaInsets();
   const { width: screenWidth } = useWindowDimensions();
   const stationName = station?.name ?? 'Station';
   const availableCount = station?.available_vehicles ?? 0;
+  const parkingSpots = station?.available_parking_spots ?? null;
   const capacity = station?.capacity ?? null;
-  const [filtersVisible, setFiltersVisible] = useState(false);
 
   const nonActiveVehicles = useMemo(() => {
     return vehicles.filter((v) => !activeVehicleId || v.vehicle_id !== activeVehicleId);
@@ -64,7 +73,6 @@ export const StationDetailsPanel = memo(function StationDetailsPanel({
   } = useVehicleFilters(nonActiveVehicles);
 
   useEffect(() => {
-    setFiltersVisible(false);
     resetFilters();
   }, [resetFilters, station?.station_id]);
 
@@ -73,120 +81,84 @@ export const StationDetailsPanel = memo(function StationDetailsPanel({
     return { latitude: station.lat, longitude: station.lng };
   }, [station]);
 
-  const sheetBg = isDark ? '#151718' : '#FFFFFF';
-  const grabberBg = isDark ? 'rgba(255,255,255,0.24)' : 'rgba(17,24,28,0.16)';
-  const closeBg = isDark ? 'rgba(255,255,255,0.1)' : 'rgba(17,24,28,0.06)';
-  const cardBg = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(17,24,28,0.03)';
-  const cardBorder = isDark ? 'rgba(255,255,255,0.12)' : 'rgba(17,24,28,0.06)';
-  const pillBg = isDark ? 'rgba(255,255,255,0.1)' : 'rgba(17,24,28,0.05)';
-  const secondaryIcon = isDark ? '#9BA1A6' : '#687076';
+  const distanceMeters = station && userLocation ? distanceMetersBetween(userLocation, stationLocation) : null;
+  const walkMinutes = distanceMeters == null ? null : Math.max(1, Math.round(distanceMeters / WALK_METERS_PER_MINUTE));
+
   const carouselGap = 12;
-  const railHorizontalPadding = 2;
-  const railViewport = Math.max(260, screenWidth - 32);
-  const cardWidth = Math.max(248, Math.round(railViewport * 0.68));
+  const railViewport = Math.min(Math.max(280, screenWidth - 48), 520);
+  const cardWidth = filteredVehicles.length > 1 ? Math.round(railViewport * 0.88) : railViewport;
   const snapInterval = cardWidth + carouselGap;
-  const activeFilterCount = (vehicleType !== 'all' ? 1 : 0) + (batteryRange !== 'all' ? 1 : 0);
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <View style={styles.backdrop}>
+      <View style={[styles.backdrop, { backgroundColor: c.backdrop }]}>
         {/* Tap-outside-to-close sits behind the sheet: wrapping the sheet in a Pressable steals swipes from the vehicle rail on iOS. */}
         <Pressable style={StyleSheet.absoluteFill} onPress={onClose} accessibilityLabel="Close station details" />
-        <View style={[styles.sheet, { backgroundColor: sheetBg }]}>
-          <View style={[styles.grabber, { backgroundColor: grabberBg }]} />
+        <View style={[styles.sheet, { backgroundColor: c.bg, paddingBottom: bottom + 20 }]}>
+          <View style={[styles.grabber, { backgroundColor: c.line }]} />
 
           <View style={styles.headerRow}>
             <View style={styles.headerText}>
-              <ThemedText type="subtitle" style={styles.stationName}>
+              <Text style={[Type.label, { color: c.accentText }]}>
+                STATION{distanceMeters == null ? '' : ` · ${formatStationDistance(distanceMeters)}`}
+              </Text>
+              <Text style={[Type.detailTitle, { color: c.text }]} numberOfLines={2}>
                 {stationName}
-              </ThemedText>
-              <ThemedText style={styles.stationMeta}>Reserve a vehicle or start a ride when you are ready.</ThemedText>
+              </Text>
             </View>
-            <Pressable style={[styles.closeBtn, { backgroundColor: closeBg }]} onPress={onClose}>
-              <Ionicons name="close" size={20} color={secondaryIcon} />
-            </Pressable>
-          </View>
-
-          <View style={styles.statsRow}>
-            <View style={[styles.statPill, { backgroundColor: pillBg }]}>
-              <Ionicons name="flash" size={15} color={accentColor} />
-              <ThemedText style={styles.statText}>
-                {availableCount} available
-              </ThemedText>
-            </View>
-            {capacity != null ? (
-              <View style={[styles.statPill, { backgroundColor: pillBg }]}>
-                <Ionicons name="git-branch-outline" size={15} color={secondaryIcon} />
-                <ThemedText style={styles.statText}>Capacity {capacity}</ThemedText>
-              </View>
-            ) : null}
-          </View>
-
-          <View style={styles.filterControlsRow}>
-            <Pressable
-              onPress={() => setFiltersVisible((prev) => !prev)}
-              style={({ pressed }) => [
-                styles.filterToggleBtn,
-                {
-                  backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(17,24,28,0.04)',
-                  borderColor: isDark ? 'rgba(255,255,255,0.2)' : 'rgba(17,24,28,0.1)',
-                  opacity: pressed ? 0.88 : 1,
-                },
-              ]}>
-              <Ionicons name="options-outline" size={17} color={accentColor} />
-              <ThemedText style={[styles.filterToggleText, { color: isDark ? '#ECEDEE' : '#11181C' }]}>
-                Filters
-              </ThemedText>
-              {activeFilterCount > 0 ? (
-                <View style={[styles.filterCountPill, { backgroundColor: accentColor }]}>
-                  <ThemedText style={styles.filterCountText}>{activeFilterCount}</ThemedText>
-                </View>
-              ) : null}
-            </Pressable>
-            {hasActiveFilters ? (
-              <Pressable onPress={resetFilters} style={({ pressed }) => [{ opacity: pressed ? 0.75 : 1 }]}>
-                <ThemedText style={[styles.resetInlineText, { color: accentColor }]}>Reset filters</ThemedText>
-              </Pressable>
-            ) : null}
-          </View>
-
-          {filtersVisible ? (
-            <VehicleFiltersPanel
-              isDark={isDark}
-              accentColor={accentColor}
-              vehicleType={vehicleType}
-              batteryRange={batteryRange}
-              hasActiveFilters={hasActiveFilters}
-              onVehicleTypeChange={setVehicleType}
-              onBatteryRangeChange={setBatteryRange}
-              onReset={resetFilters}
+            <IconButton
+              label="Close"
+              variant="line"
+              size={44}
+              onPress={onClose}
+              icon={<Ionicons name="close" size={20} color={c.text} />}
             />
-          ) : null}
+          </View>
+
+          <View style={[styles.stats, { borderColor: c.line }]}>
+            <View style={styles.stat}>
+              <Text style={[styles.statValue, { color: c.text }]}>{availableCount}</Text>
+              <Text style={[styles.statLabel, { color: c.muted }]}>vehicles</Text>
+            </View>
+            <View style={[styles.stat, styles.statDivided, { borderLeftColor: c.line }]}>
+              <Text style={[styles.statValue, { color: c.text }]}>{parkingSpots ?? capacity ?? '—'}</Text>
+              <Text style={[styles.statLabel, { color: c.muted }]}>{parkingSpots != null ? 'parking' : 'capacity'}</Text>
+            </View>
+            <View style={[styles.stat, styles.statDivided, { borderLeftColor: c.line }]}>
+              <Text style={[styles.statValue, { color: c.text }]}>{walkMinutes ?? '—'}</Text>
+              <Text style={[styles.statLabel, { color: c.muted }]}>min walk</Text>
+            </View>
+          </View>
+
+          <VehicleFiltersPanel
+            vehicleType={vehicleType}
+            batteryRange={batteryRange}
+            hasActiveFilters={hasActiveFilters}
+            onVehicleTypeChange={setVehicleType}
+            onBatteryRangeChange={setBatteryRange}
+            onReset={resetFilters}
+          />
 
           {loading ? (
-            <StationVehiclesSkeleton cardWidth={cardWidth} cardBg={cardBg} />
+            <StationVehiclesSkeleton cardWidth={cardWidth} cardBg={c.surface} />
           ) : error ? (
-            <View style={[styles.feedbackWrap, { backgroundColor: cardBg, borderColor: cardBorder }]}>
-              <Ionicons name="alert-circle-outline" size={24} color="#D90429" />
-              <ThemedText style={[styles.feedbackText, styles.errorText]}>{error}</ThemedText>
+            <View style={[styles.feedback, { backgroundColor: c.surface, borderColor: c.line }]}>
+              <Ionicons name="alert-circle-outline" size={24} color={c.accentText} />
+              <Text style={[styles.feedbackText, { color: c.accentText }]}>{error}</Text>
             </View>
           ) : filteredVehicles.length === 0 ? (
-            <View style={[styles.feedbackWrap, { backgroundColor: cardBg, borderColor: cardBorder }]}>
-              <Ionicons name="bicycle-outline" size={28} color={secondaryIcon} />
-              <ThemedText style={styles.feedbackText}>
+            <View style={[styles.feedback, { backgroundColor: c.surface, borderColor: c.line }]}>
+              <Ionicons name="bicycle-outline" size={28} color={c.muted} />
+              <Text style={[styles.feedbackText, { color: c.muted }]}>
                 {hasActiveFilters
                   ? 'No vehicles match your current filters. Try resetting filters.'
                   : 'No vehicles available here right now.'}
-              </ThemedText>
+              </Text>
             </View>
           ) : (
             <ScrollView
               horizontal
-              style={styles.vehicleRail}
-              contentContainerStyle={[
-                styles.vehicleRailContent,
-                { gap: carouselGap, paddingHorizontal: railHorizontalPadding },
-              ]}
+              contentContainerStyle={{ gap: carouselGap }}
               snapToInterval={snapInterval}
               snapToAlignment="start"
               decelerationRate="fast"
@@ -199,8 +171,6 @@ export const StationDetailsPanel = memo(function StationDetailsPanel({
                   cardWidth={cardWidth}
                   userLocation={userLocation}
                   stationLocation={stationLocation}
-                  accentHex={accentColor}
-                  isDark={isDark}
                   reserveBusy={reserveBusyVehicleId === vehicle.vehicle_id}
                   startRideBusy={startRideBusyVehicleId === vehicle.vehicle_id}
                   pricingCatalog={pricingCatalog}
@@ -217,138 +187,23 @@ export const StationDetailsPanel = memo(function StationDetailsPanel({
 });
 
 const styles = StyleSheet.create({
-  backdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(8,12,14,0.45)',
-    justifyContent: 'flex-end',
-  },
+  backdrop: { flex: 1, justifyContent: 'flex-end' },
   sheet: {
-    borderTopLeftRadius: 26,
-    borderTopRightRadius: 26,
-    paddingHorizontal: 16,
+    borderTopLeftRadius: 32,
+    borderTopRightRadius: 32,
+    paddingHorizontal: 24,
     paddingTop: 10,
-    paddingBottom: 28,
-    minHeight: 380,
     maxHeight: '88%',
     gap: 12,
   },
-  grabber: {
-    width: 42,
-    height: 5,
-    borderRadius: 999,
-    alignSelf: 'center',
-    marginBottom: 2,
-  },
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    gap: 12,
-  },
-  headerText: {
-    flex: 1,
-    gap: 4,
-  },
-  stationName: {
-    fontSize: 22,
-    fontWeight: '800',
-    letterSpacing: -0.2,
-  },
-  stationMeta: {
-    opacity: 0.65,
-    fontSize: 13,
-    lineHeight: 18,
-  },
-  closeBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  statsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  filterControlsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 12,
-  },
-  filterToggleBtn: {
-    borderRadius: 12,
-    borderWidth: 1,
-    minHeight: 40,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    alignItems: 'center',
-    flexDirection: 'row',
-    gap: 8,
-  },
-  filterToggleText: {
-    fontSize: 13,
-    fontWeight: '800',
-    letterSpacing: 0.1,
-  },
-  filterCountPill: {
-    minWidth: 20,
-    height: 20,
-    borderRadius: 999,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 6,
-  },
-  filterCountText: {
-    color: '#fff',
-    fontSize: 11,
-    fontWeight: '800',
-  },
-  resetInlineText: {
-    fontSize: 12,
-    fontWeight: '800',
-    letterSpacing: 0.1,
-  },
-  statPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    borderRadius: 999,
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-  },
-  statText: {
-    fontSize: 12,
-    fontWeight: '700',
-    opacity: 0.92,
-  },
-  feedbackWrap: {
-    minHeight: 160,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 12,
-    borderRadius: 18,
-    borderWidth: 1,
-    paddingHorizontal: 16,
-  },
-  feedbackText: {
-    fontSize: 14,
-    fontWeight: '600',
-    opacity: 0.75,
-    textAlign: 'center',
-  },
-  errorText: {
-    color: '#D90429',
-    opacity: 1,
-  },
-  vehicleRail: {
-    flexGrow: 0,
-  },
-  vehicleRailContent: {
-    paddingTop: 4,
-    paddingBottom: 10,
-    flexGrow: 0,
-  },
+  grabber: { width: 40, height: 5, borderRadius: 3, alignSelf: 'center' },
+  headerRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 12 },
+  headerText: { flex: 1, minWidth: 0, gap: 2 },
+  stats: { flexDirection: 'row', borderTopWidth: 1, borderBottomWidth: 1 },
+  stat: { flex: 1, flexDirection: 'row', alignItems: 'baseline', gap: 5, paddingVertical: 8 },
+  statDivided: { borderLeftWidth: 1, paddingLeft: 12 },
+  statValue: { fontFamily: FontFamily.display, fontSize: 22 },
+  statLabel: { fontFamily: FontFamily.regular, fontSize: 13 },
+  feedback: { borderWidth: 1, borderRadius: 20, padding: 20, alignItems: 'center', gap: 10 },
+  feedbackText: { fontFamily: FontFamily.medium, fontSize: 14, lineHeight: 20, textAlign: 'center' },
 });

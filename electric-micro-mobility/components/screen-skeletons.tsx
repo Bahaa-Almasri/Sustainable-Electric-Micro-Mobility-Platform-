@@ -3,13 +3,14 @@
  * so users see the layout coming and a slow-connection hint if it drags on.
  */
 import { ScrollView, StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Skeleton, SlowConnectionHint } from '@/components/ui/skeleton';
-import { useColorScheme } from '@/hooks/use-color-scheme';
+import { useWayfinder } from '@/hooks/use-wayfinder';
 
 function useCardBg(cardBg?: string) {
-  const isDark = useColorScheme() === 'dark';
-  return cardBg ?? (isDark ? '#1C1F21' : '#FFFFFF');
+  const { c } = useWayfinder();
+  return cardBg ?? c.surface;
 }
 
 function SkeletonCard({ cardBg }: { cardBg: string }) {
@@ -36,8 +37,9 @@ export function ListScreenSkeleton({
   withHeading?: boolean;
 }) {
   const bg = useCardBg(cardBg);
+  const { top } = useSafeAreaInsets();
   return (
-    <ScrollView style={{ backgroundColor: pageBg }} contentContainerStyle={styles.screen} scrollEnabled={false}>
+    <ScrollView style={{ backgroundColor: pageBg }} contentContainerStyle={[styles.screen, { paddingTop: top + 16 }]} scrollEnabled={false}>
       <Skeleton width={170} height={48} radius={24} />
       {withHeading ? <Skeleton width="45%" height={22} style={styles.heading} /> : null}
       {Array.from({ length: rows }, (_, i) => (
@@ -51,8 +53,9 @@ export function ListScreenSkeleton({
 /** Wallet: balance card, packages, ride history row, package catalog. */
 export function WalletSkeleton({ pageBg, cardBg }: { pageBg: string; cardBg?: string }) {
   const bg = useCardBg(cardBg);
+  const { top } = useSafeAreaInsets();
   return (
-    <ScrollView style={{ backgroundColor: pageBg }} contentContainerStyle={styles.screen} scrollEnabled={false}>
+    <ScrollView style={{ backgroundColor: pageBg }} contentContainerStyle={[styles.screen, { paddingTop: top + 16 }]} scrollEnabled={false}>
       <Skeleton height={140} radius={20} />
       <Skeleton width="40%" height={22} style={styles.heading} />
       <View style={[styles.card, { backgroundColor: bg }]}>
@@ -71,8 +74,9 @@ export function WalletSkeleton({ pageBg, cardBg }: { pageBg: string; cardBg?: st
 /** Account: avatar and name, profile progress, then settings rows. */
 export function AccountSkeleton({ pageBg, cardBg }: { pageBg: string; cardBg?: string }) {
   const bg = useCardBg(cardBg);
+  const { top } = useSafeAreaInsets();
   return (
-    <ScrollView style={{ backgroundColor: pageBg }} contentContainerStyle={styles.screen} scrollEnabled={false}>
+    <ScrollView style={{ backgroundColor: pageBg }} contentContainerStyle={[styles.screen, { paddingTop: top + 16 }]} scrollEnabled={false}>
       <View style={styles.profileRow}>
         <Skeleton width={72} height={72} radius={36} />
         <View style={styles.profileText}>
@@ -98,8 +102,9 @@ export function AccountSkeleton({ pageBg, cardBg }: { pageBg: string; cardBg?: s
 
 /** Vehicle details: hero image card, stat tiles, pricing line, action buttons. */
 export function VehicleDetailSkeleton({ pageBg }: { pageBg: string }) {
+  const { top } = useSafeAreaInsets();
   return (
-    <ScrollView style={{ backgroundColor: pageBg }} contentContainerStyle={styles.screen} scrollEnabled={false}>
+    <ScrollView style={{ backgroundColor: pageBg }} contentContainerStyle={[styles.screen, { paddingTop: top + 16 }]} scrollEnabled={false}>
       <Skeleton height={300} radius={24} />
       <View style={styles.tileRow}>
         <Skeleton width="auto" height={76} radius={16} style={styles.tile} />

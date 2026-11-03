@@ -1,6 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
+import { FontFamily } from '@/constants/theme';
+
 import { ACCENT } from '@/components/account/account-theme';
 
 export type PickerOption = {
@@ -101,7 +103,7 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 17,
-    fontWeight: '800',
+    fontFamily: FontFamily.bold,
     letterSpacing: -0.2,
     flex: 1,
     marginRight: 12,
@@ -120,6 +122,6 @@ const styles = StyleSheet.create({
   label: {
     flex: 1,
     fontSize: 16,
-    fontWeight: '600',
+    fontFamily: FontFamily.semibold,
   },
 });

@@ -1,13 +1,12 @@
-import { Ionicons } from '@expo/vector-icons';
 import { memo } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
-import { ThemedText } from '@/components/themed-text';
+import { UnderlineTabs } from '@/components/wayfinder/ui';
+import { FontFamily, Type } from '@/constants/theme';
 import type { BatteryRangeFilter, VehicleTypeFilter } from '@/hooks/use-vehicle-filters';
+import { useWayfinder } from '@/hooks/use-wayfinder';
 
 type VehicleFiltersPanelProps = {
-  isDark: boolean;
-  accentColor: string;
   vehicleType: VehicleTypeFilter;
   batteryRange: BatteryRangeFilter;
   hasActiveFilters: boolean;
@@ -18,49 +17,20 @@ type VehicleFiltersPanelProps = {
 
 const VEHICLE_TYPE_OPTIONS: { label: string; value: VehicleTypeFilter }[] = [
   { label: 'All', value: 'all' },
-  { label: 'Car', value: 'car' },
-  { label: 'Bike', value: 'bike' },
   { label: 'Scooter', value: 'scooter' },
+  { label: 'Bike', value: 'bike' },
+  { label: 'Car', value: 'car' },
 ];
 
 const BATTERY_RANGE_OPTIONS: { label: string; value: BatteryRangeFilter }[] = [
-  { label: 'All', value: 'all' },
+  { label: 'Any battery', value: 'all' },
   { label: '0-25%', value: '0-25' },
   { label: '26-50%', value: '26-50' },
   { label: '51-75%', value: '51-75' },
   { label: '76-100%', value: '76-100' },
 ];
 
-type FilterChipProps = {
-  label: string;
-  active: boolean;
-  onPress: () => void;
-  accentColor: string;
-  isDark: boolean;
-};
-
-function FilterChip({ label, active, onPress, accentColor, isDark }: FilterChipProps) {
-  return (
-    <Pressable
-      onPress={onPress}
-      style={({ pressed }) => [
-        styles.chip,
-        {
-          backgroundColor: active ? accentColor : isDark ? 'rgba(255,255,255,0.08)' : 'rgba(17,24,28,0.04)',
-          borderColor: active ? accentColor : isDark ? 'rgba(255,255,255,0.16)' : 'rgba(17,24,28,0.12)',
-          opacity: pressed ? 0.88 : 1,
-        },
-      ]}>
-      <ThemedText style={[styles.chipLabel, { color: active ? '#FFFFFF' : isDark ? '#ECEDEE' : '#11181C' }]}>
-        {label}
-      </ThemedText>
-    </Pressable>
-  );
-}
-
 export const VehicleFiltersPanel = memo(function VehicleFiltersPanel({
-  isDark,
-  accentColor,
   vehicleType,
   batteryRange,
   hasActiveFilters,
@@ -68,104 +38,43 @@ export const VehicleFiltersPanel = memo(function VehicleFiltersPanel({
   onBatteryRangeChange,
   onReset,
 }: VehicleFiltersPanelProps) {
-  const panelBg = isDark ? 'rgba(255,255,255,0.05)' : '#FAFAFB';
-  const panelBorder = isDark ? 'rgba(255,255,255,0.14)' : 'rgba(17,24,28,0.08)';
-  const muted = isDark ? '#9BA1A6' : '#687076';
+  const { c } = useWayfinder();
 
   return (
-    <View style={[styles.panel, { backgroundColor: panelBg, borderColor: panelBorder }]}>
-      <View style={styles.headerRow}>
-        <View style={styles.panelTitleRow}>
-          <Ionicons name="options-outline" size={16} color={muted} />
-          <ThemedText style={styles.sectionTitle}>Vehicle Type</ThemedText>
-        </View>
-      </View>
-      <View style={styles.chipRow}>
-        {VEHICLE_TYPE_OPTIONS.map((opt) => (
-          <FilterChip
-            key={opt.value}
-            label={opt.label}
-            active={vehicleType === opt.value}
-            onPress={() => onVehicleTypeChange(opt.value)}
-            accentColor={accentColor}
-            isDark={isDark}
-          />
-        ))}
-      </View>
-
-      <View style={styles.separator} />
-
-      <View style={styles.headerRow}>
-        <View style={styles.panelTitleRow}>
-          <Ionicons name="battery-half-outline" size={16} color={muted} />
-          <ThemedText style={styles.sectionTitle}>Battery</ThemedText>
-        </View>
-        {hasActiveFilters ? (
-          <Pressable onPress={onReset} style={({ pressed }) => [{ opacity: pressed ? 0.8 : 1 }]}>
-            <ThemedText style={[styles.resetLabel, { color: accentColor }]}>Reset filters</ThemedText>
-          </Pressable>
-        ) : null}
-      </View>
-      <View style={styles.chipRow}>
-        {BATTERY_RANGE_OPTIONS.map((opt) => (
-          <FilterChip
-            key={opt.value}
-            label={opt.label}
-            active={batteryRange === opt.value}
-            onPress={() => onBatteryRangeChange(opt.value)}
-            accentColor={accentColor}
-            isDark={isDark}
-          />
-        ))}
-      </View>
+    <View style={styles.wrap}>
+      <UnderlineTabs options={VEHICLE_TYPE_OPTIONS} value={vehicleType} onChange={onVehicleTypeChange} />
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
+        {BATTERY_RANGE_OPTIONS.map((opt) => {
+          const active = batteryRange === opt.value;
+          return (
+            <Pressable
+              key={opt.value}
+              accessibilityRole="button"
+              accessibilityState={{ selected: active }}
+              onPress={() => onBatteryRangeChange(opt.value)}
+              style={[
+                styles.chip,
+                active ? { backgroundColor: c.inverse, borderColor: c.inverse } : { borderColor: c.line },
+              ]}>
+              <Text style={[styles.chipText, { color: active ? c.inverseText : c.text }]}>{opt.label}</Text>
+            </Pressable>
+          );
+        })}
+      </ScrollView>
+      {hasActiveFilters ? (
+        <Pressable accessibilityRole="button" onPress={onReset} hitSlop={8} style={styles.reset}>
+          <Text style={[Type.secondary, styles.resetText, { color: c.accentText }]}>Reset filters</Text>
+        </Pressable>
+      ) : null}
     </View>
   );
 });
 
 const styles = StyleSheet.create({
-  panel: {
-    borderRadius: 16,
-    borderWidth: 1,
-    padding: 12,
-    gap: 10,
-  },
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  panelTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  sectionTitle: {
-    fontSize: 13,
-    fontWeight: '800',
-    letterSpacing: 0.2,
-  },
-  chipRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  chip: {
-    borderRadius: 999,
-    borderWidth: 1,
-    paddingHorizontal: 11,
-    paddingVertical: 6,
-  },
-  chipLabel: {
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  separator: {
-    height: 1,
-    backgroundColor: 'rgba(127,127,127,0.25)',
-    marginVertical: 2,
-  },
-  resetLabel: {
-    fontSize: 12,
-    fontWeight: '800',
-  },
+  wrap: { gap: 10 },
+  chips: { gap: 8 },
+  chip: { height: 36, paddingHorizontal: 14, borderRadius: 18, borderWidth: 1.5, justifyContent: 'center' },
+  chipText: { fontFamily: FontFamily.semibold, fontSize: 13 },
+  reset: { alignSelf: 'flex-start' },
+  resetText: { fontFamily: FontFamily.bold },
 });

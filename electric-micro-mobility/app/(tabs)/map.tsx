@@ -1,40 +1,35 @@
 import { router, useFocusEffect, type Href } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, StyleSheet, View } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
+import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import {
-  ActiveRideBottomCard,
-  ActiveRideStatusChip,
-} from '@/components/active-ride-bottom-card';
+import { ActiveRideDetails, ActiveRideStatusChip } from '@/components/active-ride-bottom-card';
 import { OsmMapView } from '@/components/osm-map-view';
 import { MapStationsFilterSheet } from '@/components/map-stations-filter-sheet';
 import type { OsmMapViewRef } from '@/components/osm-map-types';
 import { RideEndReceiptModal } from '@/components/ride-end-receipt-modal';
 import { ScanToRideModal } from '@/components/scan-to-ride-modal';
 import { StationDetailsPanel } from '@/components/station-details-panel';
-import { ThemedText } from '@/components/themed-text';
 import { SlowConnectionHint } from '@/components/ui/skeleton';
 import { ThemedView } from '@/components/themed-view';
-import { LoaderAccent } from '@/constants/theme';
+import { FiltersIcon, RefreshIcon } from '@/components/wayfinder/icons';
+import { Dialog, IconButton } from '@/components/wayfinder/ui';
+import { FontFamily, LoaderAccent } from '@/constants/theme';
 import { useAuth } from '@/contexts/auth-context';
-import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useMapScreen } from '@/hooks/use-map-screen';
+import { useWayfinder } from '@/hooks/use-wayfinder';
 import { createReservation, fetchVehiclesForStation, startRide, type VehicleWithState } from '@/lib/mobility-api';
 import type { StationRow } from '@/types/entities';
 
-const RED_ACCENT = '#FF4B41';
-const GRADIENT_RED = '#D90429';
-const GRADIENT_BLACK = '#11181C';
+const RIDE_MAP_HEIGHT = 168;
 
 /**
- * Native map: OpenStreetMap-derived tiles (Leaflet in WebView). No Google / Apple map SDK.
- * Web uses `map.web.tsx`. Station markers and location behavior match `useMapScreen`.
+ * OpenStreetMap-derived tiles (Leaflet in a WebView, or an iframe on web). No Google / Apple map SDK.
+ * Station markers and location behavior match `useMapScreen`.
  */
 export default function MapScreen() {
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
+  const { c, isDark } = useWayfinder();
+  const insets = useSafeAreaInsets();
   const { user } = useAuth();
   const {
     region,
@@ -224,8 +219,10 @@ export default function MapScreen() {
     router.push(reservationsRoute);
   }, []);
 
+  const rideMapTop = insets.top + 8;
+
   return (
-    <View style={styles.flex}>
+    <View style={[styles.flex, { backgroundColor: c.bg }]}>
       {loading ? (
         <ThemedView style={styles.overlay}>
           <ActivityIndicator size="large" color={LoaderAccent} />
@@ -233,58 +230,61 @@ export default function MapScreen() {
         </ThemedView>
       ) : null}
 
-      <OsmMapView
-        ref={mapRef}
-        style={styles.map}
-        region={region}
-        stations={mapStations}
-        userLocation={userLocation}
-        onStationPress={onStationPress}
-        stationMarkerMode={rideActive ? 'parking' : 'browse'}
-      />
+      <View style={rideActive ? [styles.rideMap, { top: rideMapTop }] : styles.map}>
+        <OsmMapView
+          ref={mapRef}
+          style={styles.map}
+          region={region}
+          stations={mapStations}
+          userLocation={userLocation}
+          onStationPress={onStationPress}
+          stationMarkerMode={rideActive ? 'parking' : 'browse'}
+          isDark={isDark}
+          selectedStationId={selectedStation?.station_id ?? null}
+        />
+      </View>
 
-      {rideActive ? (
+      {rideActive && activeRide ? (
         <>
-          <View style={styles.rideTopChrome} pointerEvents="box-none">
-            <ActiveRideStatusChip isDark={isDark} />
-          </View>
-          {activeRide ? (
-            <ActiveRideBottomCard
-              activeRide={activeRide}
-              isDark={isDark}
-              ending={ending}
-              onEndRide={onEndRide}
+          <View style={[styles.rideChrome, { top: rideMapTop + 10 }]} pointerEvents="box-none">
+            <ActiveRideStatusChip />
+            <IconButton
+              label="Refresh map"
+              variant="inverse"
+              onPress={() => void refreshAndAnimate()}
+              icon={<RefreshIcon color={c.inverseText} />}
             />
-          ) : null}
-          <Pressable
-            style={[styles.fabRide, { backgroundColor: RED_ACCENT }]}
-            onPress={refreshAndAnimate}
-            accessibilityLabel="Refresh map">
-            <Ionicons name="refresh" size={20} color="#FFFFFF" />
-          </Pressable>
+          </View>
+          <ActiveRideDetails
+            activeRide={activeRide}
+            ending={ending}
+            stations={stations}
+            userLocation={userLocation}
+            pricingCatalog={pricingCatalog}
+            onEndRide={onEndRide}
+            style={{ marginTop: rideMapTop + RIDE_MAP_HEIGHT }}
+          />
         </>
       ) : (
         <>
-          <View style={styles.topControls}>
+          <View style={[styles.topControls, { top: insets.top + 12 }]} pointerEvents="box-none">
             <Pressable
-              style={({ pressed }) => [
-                styles.filtersBtn,
-                {
-                  backgroundColor: RED_ACCENT,
-                  borderColor: RED_ACCENT,
-                  opacity: pressed ? 0.9 : 1,
-                },
-              ]}
+              accessibilityRole="button"
+              accessibilityLabel={hasMapFilters ? 'Map filters, active' : 'Map filters'}
+              style={({ pressed }) => [styles.filtersBtn, { backgroundColor: c.inverse, opacity: pressed ? 0.88 : 1 }]}
               onPress={() => setMapFiltersVisible(true)}>
-              <ThemedText style={[styles.filtersBtnText, { color: '#FFFFFF' }]}>Filters</ThemedText>
-              {hasMapFilters ? (
-                <View style={[styles.filterDot, { backgroundColor: '#FFFFFF' }]} />
-              ) : null}
+              <FiltersIcon color={c.inverseText} />
+              <Text style={[styles.filtersBtnText, { color: c.inverseText }]}>Filters</Text>
+              {hasMapFilters ? <View style={[styles.filterDot, { backgroundColor: c.accent }]} /> : null}
             </Pressable>
+            <IconButton
+              label="Refresh map"
+              variant="inverse"
+              size={48}
+              onPress={() => void refreshAndAnimate()}
+              icon={<RefreshIcon color={c.inverseText} />}
+            />
           </View>
-          <Pressable style={[styles.fab, { backgroundColor: RED_ACCENT }]} onPress={refreshAndAnimate}>
-            <Ionicons name="refresh" size={20} color="#FFFFFF" />
-          </Pressable>
           <StationDetailsPanel
             visible={!!selectedStation}
             station={selectedStation}
@@ -295,8 +295,6 @@ export default function MapScreen() {
             startRideBusyVehicleId={startRideBusyVehicleId}
             activeVehicleId={null}
             userLocation={userLocation}
-            accentColor={RED_ACCENT}
-            isDark={isDark}
             pricingCatalog={pricingCatalog}
             onClose={() => setSelectedStation(null)}
             onReserve={onReserveList}
@@ -304,8 +302,6 @@ export default function MapScreen() {
           />
           <ScanToRideModal
             visible={scanVisible}
-            accentColor={RED_ACCENT}
-            isDark={isDark}
             busy={startRideBusyVehicleId === scanVehicleId}
             expectedPayloads={[
               ...(selectedScanVehicle?.vehicles?.qr_code ? [selectedScanVehicle.vehicles.qr_code] : []),
@@ -316,8 +312,6 @@ export default function MapScreen() {
           />
           <MapStationsFilterSheet
             visible={mapFiltersVisible}
-            isDark={isDark}
-            accentColor={RED_ACCENT}
             showEmptyStations={showEmptyStations}
             visibleStationsCount={browseStationList.length}
             totalStationsCount={stations.length}
@@ -325,35 +319,17 @@ export default function MapScreen() {
             onToggleShowEmptyStations={() => setShowEmptyStations((prev) => !prev)}
             onReset={() => setShowEmptyStations(false)}
           />
-          {reserveSuccessVisible ? (
-            <View style={styles.successOverlay}>
-              <View
-                style={[
-                  styles.successCard,
-                  {
-                    backgroundColor: isDark ? '#151718' : '#FFFFFF',
-                    borderColor: isDark ? 'rgba(255,255,255,0.12)' : 'rgba(17,24,28,0.08)',
-                  },
-                ]}>
-                <LinearGradient colors={[GRADIENT_RED, GRADIENT_BLACK]} style={styles.successIconWrap}>
-                  <Ionicons name="checkmark" size={28} color="#FFFFFF" />
-                </LinearGradient>
-                <ThemedText style={styles.successTitle}>Reserved successfully</ThemedText>
-                <ThemedText style={styles.successSubtitle}>{reserveSuccessMessage}</ThemedText>
-                <Pressable style={styles.successButton} onPress={onReserveSuccessOk}>
-                  <ThemedText style={styles.successButtonText}>OK</ThemedText>
-                </Pressable>
-              </View>
-            </View>
-          ) : null}
+          <Dialog
+            inline
+            visible={reserveSuccessVisible}
+            title="Reserved successfully"
+            message={reserveSuccessMessage}
+            onRequestClose={onReserveSuccessOk}
+            actions={[{ label: 'OK', onPress: onReserveSuccessOk }]}
+          />
         </>
       )}
-      <RideEndReceiptModal
-        visible={!!rideEndReceipt}
-        billing={rideEndReceipt}
-        isDark={isDark}
-        onClose={dismissRideEndReceipt}
-      />
+      <RideEndReceiptModal visible={!!rideEndReceipt} billing={rideEndReceipt} onClose={dismissRideEndReceipt} />
     </View>
   );
 }
@@ -361,6 +337,14 @@ export default function MapScreen() {
 const styles = StyleSheet.create({
   flex: { flex: 1 },
   map: { ...StyleSheet.absoluteFill },
+  rideMap: {
+    position: 'absolute',
+    left: 16,
+    right: 16,
+    height: RIDE_MAP_HEIGHT,
+    borderRadius: 26,
+    overflow: 'hidden',
+  },
   overlay: {
     ...StyleSheet.absoluteFill,
     alignItems: 'center',
@@ -368,116 +352,39 @@ const styles = StyleSheet.create({
     zIndex: 2,
     pointerEvents: 'none',
   },
-  rideTopChrome: {
+  rideChrome: {
     position: 'absolute',
-    top: 14,
-    left: 0,
-    right: 0,
+    left: 28,
+    right: 26,
     zIndex: 5,
-    alignItems: 'center',
-    pointerEvents: 'box-none',
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
   },
   topControls: {
     position: 'absolute',
-    top: 14,
-    left: 0,
-    right: 0,
+    left: 16,
+    right: 16,
     zIndex: 4,
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
   },
   filtersBtn: {
-    borderWidth: 1.4,
-    borderRadius: 12,
-    minHeight: 42,
-    paddingHorizontal: 14,
+    height: 48,
+    borderRadius: 24,
+    paddingHorizontal: 18,
     alignItems: 'center',
     flexDirection: 'row',
     gap: 8,
   },
   filtersBtnText: {
-    fontSize: 13,
-    fontWeight: '800',
+    fontFamily: FontFamily.bold,
+    fontSize: 15,
   },
   filterDot: {
     width: 8,
     height: 8,
-    borderRadius: 99,
-  },
-  fab: {
-    position: 'absolute',
-    right: 16,
-    bottom: 28,
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 4,
-  },
-  fabRide: {
-    position: 'absolute',
-    right: 16,
-    bottom: 200,
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 5,
-  },
-  successOverlay: {
-    position: 'absolute',
-    top: 0,
-    right: 0,
-    bottom: 0,
-    left: 0,
-    backgroundColor: 'rgba(8,12,14,0.52)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 20,
-    zIndex: 20,
-  },
-  successCard: {
-    width: '100%',
-    maxWidth: 360,
-    borderRadius: 20,
-    borderWidth: 1,
-    padding: 20,
-    alignItems: 'center',
-    gap: 12,
-  },
-  successIconWrap: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  successTitle: {
-    fontSize: 20,
-    fontWeight: '800',
-    textAlign: 'center',
-    letterSpacing: -0.2,
-  },
-  successSubtitle: {
-    fontSize: 14,
-    lineHeight: 20,
-    textAlign: 'center',
-    opacity: 0.88,
-  },
-  successButton: {
-    marginTop: 4,
-    borderRadius: 12,
-    backgroundColor: RED_ACCENT,
-    minHeight: 44,
-    minWidth: 136,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 16,
-  },
-  successButtonText: {
-    color: '#FFFFFF',
-    fontWeight: '800',
-    fontSize: 15,
+    borderRadius: 4,
   },
 });

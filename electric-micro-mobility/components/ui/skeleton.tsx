@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Animated, StyleSheet, View, type DimensionValue, type StyleProp, type ViewStyle } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
+import { Palette } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
 /** After this long on a skeleton, tell the user the wait is likely their connection, not the app. */
@@ -33,7 +34,7 @@ export function Skeleton({ width = '100%', height = 16, radius = 8, style }: Ske
   return (
     <Animated.View
       style={[
-        { width, height, borderRadius: radius, opacity, backgroundColor: isDark ? '#2A2F33' : '#E3E6E8' },
+        { width, height, borderRadius: radius, opacity, backgroundColor: isDark ? Palette.dark.skeleton : Palette.light.skeleton },
         style,
       ]}
     />
@@ -60,7 +61,7 @@ export function SlowConnectionHint({ loading = true }: { loading?: boolean }) {
   if (!slow) return null;
   return (
     <View style={styles.hint} accessibilityLiveRegion="polite">
-      <ThemedText style={styles.hintText} lightColor="#687076" darkColor="#9BA1A6">
+      <ThemedText style={styles.hintText} lightColor={Palette.light.muted} darkColor={Palette.dark.muted}>
         Taking longer than usual. Your connection may be slow.
       </ThemedText>
     </View>
