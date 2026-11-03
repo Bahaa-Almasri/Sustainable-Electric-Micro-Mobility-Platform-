@@ -3,6 +3,16 @@ electric-micro-mobility/node_modules/
 electric-micro-mobility/.expo/
 electric-micro-mobility/dist/
 electric-micro-mobility/.env
+
+# Backend (.NET) — machine-local secrets and build output
+backend/**/appsettings.Development.json
+backend/**/appsettings.Local.json
+backend/**/bin/
+backend/**/obj/
+backend/**/TestResults/
+*.user
+
+# Legacy Python backend leftovers (local only)
 backend/.venv/
 backend/.env
 __pycache__/

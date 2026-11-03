@@ -1,19 +1,19 @@
 # Sustainable Electric Micro-Mobility Platform
 
-A cross-platform client plus API for discovering and using shared electric micro-mobility (scooters, e-bikes, and similar vehicles). The **Expo (React Native)** app targets iOS, Android, and web with tabs for wallet, map, reservations, account, and support. The **FastAPI** backend provides authentication, vehicles, rides, wallet, reservations, and support endpoints backed by **PostgreSQL** (for example [Neon](https://neon.tech)).
+A cross-platform client plus API for discovering and using shared electric micro-mobility (scooters, e-bikes, and similar vehicles). The **Expo (React Native)** app targets iOS, Android, and web with tabs for wallet, map, reservations, account, and support. The **ASP.NET Core (.NET 9)** backend provides authentication, vehicles, rides, wallet, reservations, and support endpoints backed by **PostgreSQL** on [Neon](https://neon.tech), with EF Core, Hangfire background jobs and SignalR realtime events.
 
 ## Repository layout
 
 | Path | Role |
 |------|------|
-| `electric-micro-mobility/` | Expo Router app (Expo SDK 54, React 19) |
-| `backend/` | FastAPI service (`uvicorn`), `asyncpg`, JWT auth |
+| `electric-micro-mobility/` | Expo Router app (Expo SDK 58, React 19) |
+| `backend/` | ASP.NET Core 9 API, EF Core + Npgsql, Hangfire, SignalR, JWT auth — see [backend/README.md](backend/README.md) |
 
 ## Prerequisites
 
 - **Node.js** 20+ (LTS recommended) and npm  
-- **Python** 3.11+ for the API  
-- A **PostgreSQL** database URL (`postgresql://...`) for the backend  
+- **.NET 9 SDK** for the API (Docker as well, to run its integration tests)  
+- A **PostgreSQL** connection string (a Neon `postgresql://...` URI works as-is)  
 - For device testing: [Expo Go](https://expo.dev/go), or iOS Simulator / Android emulator as in [Expo’s environment docs](https://docs.expo.dev/get-started/set-up-your-environment/)
 
 ## Start the mobile / web app
@@ -46,7 +46,7 @@ At the Metro prompt, press `w` for web or scan the QR code with Expo Go.
 
 ### Point the app at your API
 
-The client needs a reachable base URL for the FastAPI server. Configure one of:
+The client needs a reachable base URL for the API server. Configure one of:
 
 - Environment: create `electric-micro-mobility/.env` with  
   `EXPO_PUBLIC_API_URL=http://127.0.0.1:8000`  
@@ -57,35 +57,22 @@ Restart Expo after changing env vars.
 
 ## Start the backend API
 
-```bash
-cd backend
-python -m venv .venv
-```
+Copy `backend/MicroMobility/appsettings.Development.example.json` to `appsettings.Development.json` (gitignored) in the same folder and fill in:
 
-**Windows (PowerShell):** `.venv\Scripts\Activate.ps1`  
-**macOS / Linux:** `source .venv/bin/activate`
-
-```bash
-pip install -r requirements.txt
-copy .env.example .env   # Windows — on Unix use: cp .env.example .env
-```
-
-Edit `backend/.env`: set `DATABASE_URL` to a real `postgresql://...` connection string (see comments in `.env.example`), `JWT_SECRET`, and `CORS_ORIGINS` if your Expo web dev server uses another origin. Apply any SQL files under `backend/migrations/` to your database as needed for your schema.
+- `ConnectionStrings:DefaultConnection` — your Neon connection URI, pasted as-is
+- `Jwt:Secret` — at least 32 characters (keep the old `JWT_SECRET` and existing app sessions stay signed in)
+- `Cors:AllowedOrigins` — only needed outside Development; in Development any localhost or LAN origin is allowed
 
 From the **repository root**:
 
 ```bash
-npm run backend
+npm run backend        # dotnet watch: restarts on code changes
+npm run backend:test   # unit + integration tests (integration needs Docker)
 ```
 
-Or manually:
+Or manually: `dotnet run --project backend/MicroMobility`.
 
-```bash
-cd backend
-python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
-```
-
-Check health: [http://127.0.0.1:8000/health](http://127.0.0.1:8000/health).
+The API listens on port 8000. Check health at [http://127.0.0.1:8000/health](http://127.0.0.1:8000/health); in Development, Swagger UI is at `/swagger` and the Hangfire job dashboard at `/hangfire`. The schema is managed by EF Core migrations, which run on startup. See [backend/README.md](backend/README.md) for configuration, what the first start creates in the database, and deployment.
 
 ## Linting (app)
 
@@ -99,4 +86,6 @@ npm run lint
 
 - [Expo documentation](https://docs.expo.dev/)  
 - [Expo Router](https://docs.expo.dev/router/introduction/)  
-- [FastAPI](https://fastapi.tiangolo.com/)
+- [ASP.NET Core](https://learn.microsoft.com/aspnet/core/)  
+- [EF Core + Npgsql](https://www.npgsql.org/efcore/)  
+- [Hangfire](https://docs.hangfire.io/)

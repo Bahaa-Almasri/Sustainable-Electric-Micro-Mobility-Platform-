@@ -52,7 +52,7 @@ export function ApiNotConfigured({ showBack = false }: { showBack?: boolean }) {
   return (
     <ThemedView style={[styles.fallback, { paddingTop: top + 24 }]}>
       <ThemedText type="title">Connect API</ThemedText>
-      <ThemedText>Point the app at your FastAPI backend (Neon is used only on the server).</ThemedText>
+      <ThemedText>Point the app at your backend API (Neon is used only on the server).</ThemedText>
       <ThemedText style={styles.fallbackList}>
         {`• .env: EXPO_PUBLIC_API_URL=http://127.0.0.1:8000\n• Or constants/api-config.ts API_BASE_URL_OVERRIDE\n• Or app.config.js extra.apiBaseUrl\n• Android emulator: http://10.0.2.2:8000`}
       </ThemedText>

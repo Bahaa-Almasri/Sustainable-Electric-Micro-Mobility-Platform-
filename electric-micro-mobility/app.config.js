@@ -1,6 +1,6 @@
 /**
  * Expo merges this with app.json.
- * Frontend → FastAPI: EXPO_PUBLIC_API_URL or extra.apiBaseUrl
+ * Frontend → backend API (.NET): EXPO_PUBLIC_API_URL or extra.apiBaseUrl
  */
 module.exports = ({ config }) => ({
   ...config,

@@ -1,1 +1,0 @@
-# Micro-mobility FastAPI application

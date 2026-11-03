@@ -9,6 +9,7 @@
     "web": "npm run web --prefix electric-micro-mobility",
     "lint": "npm run lint --prefix electric-micro-mobility",
     "expo": "npm exec --prefix electric-micro-mobility -- expo",
-    "backend": "cd backend && python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000"
+    "backend": "dotnet watch run --project backend/MicroMobility",
+    "backend:test": "dotnet test backend/MicroMobility.sln"
   }
 }

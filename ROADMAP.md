@@ -6,7 +6,7 @@ Last updated: 2026-09-27
 
 ## Current state (for context)
 
-- **Backend**: FastAPI + asyncpg + PostgreSQL. JWT auth, vehicles, stations, rides, reservations, wallet, support routers.
+- **Backend**: ASP.NET Core 9 + EF Core + PostgreSQL (Neon), Hangfire jobs, SignalR hub. JWT auth, vehicles, stations, rides, reservations, wallet, support controllers. Ported from FastAPI on 2026-11-03.
 - **Frontend**: Expo Router (SDK 54, React 19) app with tabs for map, wallet, reservations, account, support. OSM/Leaflet map, QR scan-to-ride, account settings/preferences, dark mode.
 - **Known rough spots**: wallet purchases are recorded as `completed` without a real payment gateway; vehicle position/battery only change on ride start/end (no live telemetry); support tickets can be created and listed but not replied to; no admin tooling; no automated tests or CI; no crash/error monitoring.
 
@@ -45,12 +45,12 @@ Goal: replace the parts that are currently mocked/simplified with production-sha
 
 - [ ] **Real payment gateway**: integrate Stripe (or a regional equivalent) for wallet top-ups/package purchases instead of writing `completed` rows directly. Handle failed payments, refunds, and webhooks.
 - [ ] **Logging & error monitoring**: structured logging + request IDs on the backend, Sentry (or similar) on both backend and app so failures in the field are visible instead of silent.
-- [ ] **Automated tests + CI**: pytest for backend routers (auth, rides, reservations, wallet), Jest/RNTL for frontend `lib/` helpers and key components, GitHub Actions running both plus lint/typecheck on every push.
+- [ ] **Automated tests + CI**: backend xUnit suites exist (unit + Testcontainers integration, `npm run backend:test`) — still to do: Jest/RNTL for frontend `lib/` helpers and key components, GitHub Actions running both plus lint/typecheck on every push.
 - [ ] **Live vehicle telemetry**: background job or simulator that updates `vehicle_current_state` (battery drain, GPS drift) so the map reflects something closer to reality.
 - [ ] **Support ticket workflow completion**: replies/status transitions and a way for a human to actually respond, building on the ticket detail view from month 1.
 - [ ] **Push notifications**: ride started/ended, reservation about to expire, low wallet balance, support ticket replies.
 - [ ] **Admin visibility**: at minimum, a way to view stations/vehicles/rides/tickets without querying the DB directly — doesn't need to be a full dashboard yet.
-- [ ] **Secrets hygiene & migration tooling**: confirm `.env` files are fully gitignored with `.env.example` kept current; move from raw numbered `.sql` files to a real migration tool (Alembic or similar).
+- [ ] **Secrets hygiene & migration tooling**: confirm `.env` files are fully gitignored with `.env.example` kept current; migrations moved from raw numbered `.sql` files to EF Core (baseline `InitialSchema`, 2026-11-03).
 
 ---
 
