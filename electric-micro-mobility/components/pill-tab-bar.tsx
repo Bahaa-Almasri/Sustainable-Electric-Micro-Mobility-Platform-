@@ -10,7 +10,7 @@ export type BottomTabBarProps = Parameters<NonNullable<ComponentProps<typeof Tab
 
 const ACTIVE_PILL = '#FF4B41';
 
-function PillTabBarInner({ state, descriptors, navigation, insets }: BottomTabBarProps) {
+function PillTabBarInner({ state, descriptors, emitter, navigateToTab, insets }: BottomTabBarProps) {
   const colorScheme = useColorScheme() ?? 'light';
   const theme = Colors[colorScheme];
   const barBg = theme.background;
@@ -35,18 +35,18 @@ function PillTabBarInner({ state, descriptors, navigation, insets }: BottomTabBa
         const isFocused = state.index === index;
 
         const onPress = () => {
-          const event = navigation.emit({
+          const event = emitter.emit({
             type: 'tabPress',
             target: route.key,
             canPreventDefault: true,
           });
           if (!isFocused && !event.defaultPrevented) {
-            navigation.navigate(route.name);
+            navigateToTab(route.key);
           }
         };
 
         const onLongPress = () => {
-          navigation.emit({
+          emitter.emit({
             type: 'tabLongPress',
             target: route.key,
           });

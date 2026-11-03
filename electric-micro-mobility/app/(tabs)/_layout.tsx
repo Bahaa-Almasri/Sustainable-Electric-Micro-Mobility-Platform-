@@ -9,20 +9,28 @@ import { Colors, LoaderAccent } from '@/constants/theme';
 import { useAuth } from '@/contexts/auth-context';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
-function WalletTabIcon({ color, size }: { color: ColorValue; size: number }) {
-  return <MaterialIcons name="account-balance-wallet" size={size} color={color} />;
+/** Expo Router 58 sets the starting tab here instead of on `<Tabs>`. */
+export const unstable_settings = { anchor: 'wallet' };
+
+type TabIconProps = { color: ColorValue; size: number };
+
+/** React Native 0.88's `ColorValue` includes `null` and numbers, which icon colors don't accept. */
+const iconColor = (color: ColorValue) => (color == null || typeof color === 'number' ? undefined : color);
+
+function WalletTabIcon({ color, size }: TabIconProps) {
+  return <MaterialIcons name="account-balance-wallet" size={size} color={iconColor(color)} />;
 }
-function ReservationsTabIcon({ color, size }: { color: ColorValue; size: number }) {
-  return <MaterialIcons name="event-note" size={size} color={color} />;
+function ReservationsTabIcon({ color, size }: TabIconProps) {
+  return <MaterialIcons name="event-note" size={size} color={iconColor(color)} />;
 }
-function MapTabIcon({ color, size }: { color: ColorValue; size: number }) {
-  return <MaterialIcons name="map" size={size + 4} color={color} />;
+function MapTabIcon({ color, size }: TabIconProps) {
+  return <MaterialIcons name="map" size={size + 4} color={iconColor(color)} />;
 }
-function SupportTabIcon({ color, size }: { color: ColorValue; size: number }) {
-  return <MaterialIcons name="support-agent" size={size} color={color} />;
+function SupportTabIcon({ color, size }: TabIconProps) {
+  return <MaterialIcons name="support-agent" size={size} color={iconColor(color)} />;
 }
-function AccountTabIcon({ color, size }: { color: ColorValue; size: number }) {
-  return <MaterialIcons name="person" size={size} color={color} />;
+function AccountTabIcon({ color, size }: TabIconProps) {
+  return <MaterialIcons name="person" size={size} color={iconColor(color)} />;
 }
 
 export default function TabLayout() {
@@ -72,7 +80,7 @@ export default function TabLayout() {
   }
 
   return (
-    <Tabs initialRouteName="wallet" screenOptions={screenOptions} tabBar={renderTabBar}>
+    <Tabs screenOptions={screenOptions} tabBar={renderTabBar}>
       <Tabs.Screen
         name="wallet"
         options={{
