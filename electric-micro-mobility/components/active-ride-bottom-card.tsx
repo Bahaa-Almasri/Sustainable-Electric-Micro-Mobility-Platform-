@@ -3,6 +3,7 @@ import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { EndRideConfirmSheet } from '@/components/end-ride-confirm-sheet';
+import { RideCostText, RideDurationText } from '@/components/ride-live-text';
 import { RouteStop } from '@/components/wayfinder/route';
 import { FontFamily, Type } from '@/constants/theme';
 import { useRideDistance } from '@/hooks/use-ride-distance';
@@ -10,7 +11,7 @@ import { useTabBarSpace, useWayfinder } from '@/hooks/use-wayfinder';
 import { distanceMetersBetween } from '@/lib/geo-distance';
 import { haptics } from '@/lib/haptics';
 import { fetchVehicleDetail } from '@/lib/mobility-api';
-import { elapsedSeconds, estimateRideCost, formatClock, formatRideDuration } from '@/lib/ride-time';
+import { formatClock } from '@/lib/ride-time';
 import { estimateRangeKm, getVehicleImageSource, getVehicleVisual, vehicleKindFromDbType } from '@/lib/vehicle-image-map';
 import type { RidePricingCatalog, RideRowWithVehicle, StationRow, VehicleWithState } from '@/types/entities';
 
@@ -75,12 +76,6 @@ export const ActiveRideDetails = memo(function ActiveRideDetails({
     void loadVehicle();
   }, [loadVehicle]);
 
-  const [, setTick] = useState(0);
-  useEffect(() => {
-    const id = setInterval(() => setTick((t) => t + 1), 1000);
-    return () => clearInterval(id);
-  }, []);
-
   const ridden = useRideDistance(activeRide.ride_id, userLocation);
   const startName = useMemo(() => startStationName(activeRide, stations), [activeRide, stations]);
 
@@ -88,9 +83,7 @@ export const ActiveRideDetails = memo(function ActiveRideDetails({
   const batteryPct = battery == null || Number.isNaN(battery) ? null : Math.round(battery);
   const rangeKm = estimateRangeKm(vehicleType, battery ?? null);
 
-  const seconds = elapsedSeconds(activeRide.start_time);
   const rate = activeRide.pricing ?? pricingCatalog?.[vehicleKindFromDbType(vehicleType)] ?? null;
-  const costSoFar = estimateRideCost(rate, seconds);
   const vehicleName = activeRide.vehicles?.model?.trim() || visual.title;
   const [confirmVisible, setConfirmVisible] = useState(false);
 
@@ -114,9 +107,7 @@ export const ActiveRideDetails = memo(function ActiveRideDetails({
           </Text>
         </View>
       </View>
-      <Text style={[styles.timer, { color: c.text }]} accessibilityLabel={`Ride duration ${formatRideDuration(seconds)}`}>
-        {formatRideDuration(seconds)}
-      </Text>
+      <RideDurationText startTime={activeRide.start_time} style={[styles.timer, { color: c.text }]} />
 
       <View style={styles.timeline}>
         <RouteStop state="end" line="text" dotOffset={3}>
@@ -158,7 +149,7 @@ export const ActiveRideDetails = memo(function ActiveRideDetails({
         </View>
         <View style={[styles.stat, styles.statDivided, { borderLeftColor: c.line }]}>
           <Text style={[Type.secondary, { color: c.muted }]}>So far</Text>
-          <Text style={[Type.stat, { color: c.text }]}>{costSoFar == null ? '—' : `$${costSoFar.toFixed(2)}`}</Text>
+          <RideCostText startTime={activeRide.start_time} rate={rate} style={[Type.stat, { color: c.text }]} />
         </View>
       </View>
 
@@ -167,6 +158,7 @@ export const ActiveRideDetails = memo(function ActiveRideDetails({
         accessibilityLabel="Stop ride"
         accessibilityHint="Asks you to confirm before the ride ends"
         accessibilityState={{ disabled: ending }}
+        hitSlop={8}
         onPress={() => {
           haptics.medium();
           setConfirmVisible(true);

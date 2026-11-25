@@ -12,6 +12,7 @@ import {
   type TextInputProps,
   type ViewStyle,
 } from 'react-native';
+import Animated, { FadeInDown } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Line } from 'react-native-svg';
 
@@ -281,12 +282,17 @@ type DialogProps = {
   inline?: boolean;
 };
 
+/** The card rises a little and settles with a soft spring, instead of popping in (e.g. the ride receipt). */
+const DIALOG_ENTERING = FadeInDown.duration(260).springify().damping(18).stiffness(180);
+
 /** Centered confirmation or result card, used in place of the older per-screen dialogs. */
 export function Dialog({ visible, title, message, onRequestClose, actions, children, inline = false }: DialogProps) {
   const { c } = useWayfinder();
   const body = (
       <View style={[inline ? styles.inlineBackdrop : styles.backdrop, { backgroundColor: c.backdrop }]}>
-        <View style={[styles.dialog, { backgroundColor: c.surface, borderColor: c.line }]}>
+        <Animated.View
+          entering={DIALOG_ENTERING}
+          style={[styles.dialog, { backgroundColor: c.surface, borderColor: c.line }]}>
           <Text style={[Type.sectionTitle, { color: c.text }]} accessibilityRole="header">
             {title}
           </Text>
@@ -307,7 +313,7 @@ export function Dialog({ visible, title, message, onRequestClose, actions, child
               />
             ))}
           </View>
-        </View>
+        </Animated.View>
       </View>
   );
   if (inline) return visible ? body : null;
