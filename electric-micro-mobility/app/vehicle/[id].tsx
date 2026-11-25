@@ -2,10 +2,11 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
 import { router, useLocalSearchParams, type Href } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Alert, Image, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Image, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ScanToRideModal } from '@/components/scan-to-ride-modal';
+import { ToastHost } from '@/components/toast-host';
 import { VehicleDetailSkeleton } from '@/components/screen-skeletons';
 import { ScanIcon } from '@/components/wayfinder/icons';
 import { BackButton, Button, Dialog, StatusPill } from '@/components/wayfinder/ui';
@@ -19,6 +20,7 @@ import {
   startRide,
   type VehicleWithState,
 } from '@/lib/mobility-api';
+import { toast } from '@/lib/toast';
 import { estimateRangeKm, getVehicleImageSelection, getVehicleVisual, vehicleKindFromDbType } from '@/lib/vehicle-image-map';
 import type { ReservationRow, RidePricingCatalog } from '@/types/entities';
 
@@ -165,11 +167,11 @@ export default function VehicleDetailScreen() {
         startLng,
       });
       if (err) {
-        Alert.alert('Cannot start ride', err);
+        toast.error('Cannot start ride', { message: err });
         return;
       }
       setScanVisible(false);
-      Alert.alert('Ride started', 'Have a safe trip. You can end the ride from the Map tab.');
+      toast.success('Ride started', { message: 'Have a safe trip. End the ride from the Map tab.' });
       router.back();
     } finally {
       setStartRideBusy(false);
@@ -182,7 +184,7 @@ export default function VehicleDetailScreen() {
     try {
       const { data, error: err } = await createReservation(user.id, id);
       if (err) {
-        Alert.alert('Reservation failed', err.message);
+        toast.error('Reservation failed', { message: err.message });
         return;
       }
       const backendMessage = data?.message?.trim();
@@ -338,6 +340,7 @@ export default function VehicleDetailScreen() {
         onRequestClose={() => setReservationSuccessVisible(false)}
         actions={[{ label: 'OK', onPress: onReservationSuccessOk }]}
       />
+      <ToastHost />
     </View>
   );
 }

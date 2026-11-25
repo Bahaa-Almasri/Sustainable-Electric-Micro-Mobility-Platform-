@@ -13,6 +13,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useMemo } from 'react';
 
 import { OfflineBanner } from '@/components/offline-banner';
+import { ToastHost } from '@/components/toast-host';
 import { AuthProvider } from '@/contexts/auth-context';
 import { PreferencesProvider } from '@/contexts/preferences-context';
 import { Palette } from '@/constants/theme';
@@ -48,6 +49,7 @@ function RootLayoutContent() {
           }}
         />
       </Stack>
+      <ToastHost />
       <OfflineBanner />
       <StatusBar style={statusStyle} />
     </ThemeProvider>

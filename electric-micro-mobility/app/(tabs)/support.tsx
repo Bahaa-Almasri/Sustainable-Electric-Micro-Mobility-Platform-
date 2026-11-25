@@ -1,6 +1,6 @@
 import { useFocusEffect } from 'expo-router';
 import { useCallback, useRef, useState } from 'react';
-import { Alert, KeyboardAvoidingView, Platform, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { ListScreenSkeleton } from '@/components/screen-skeletons';
 import { Button, Card, EmptyNote, Field, PageHeader, SectionTitle, StatusPill } from '@/components/wayfinder/ui';
@@ -8,6 +8,7 @@ import { LoaderAccent, Type } from '@/constants/theme';
 import { useAuth } from '@/contexts/auth-context';
 import { useTabBarSpace, useWayfinder } from '@/hooks/use-wayfinder';
 import { createSupportTicket, fetchSupportTickets } from '@/lib/mobility-api';
+import { toast } from '@/lib/toast';
 import type { TicketRow } from '@/types/entities';
 
 function formatDay(iso: string | null): string | null {
@@ -75,17 +76,18 @@ export default function SupportScreen() {
   async function submitTicket() {
     if (!user) return;
     if (!subject.trim() || !description.trim()) {
-      Alert.alert('Missing info', 'Add a subject and description.');
+      toast.error('Missing info', { message: 'Add a subject and a description.' });
       return;
     }
     setSending(true);
     const { error } = await createSupportTicket(user.id, subject.trim(), description.trim());
     setSending(false);
     if (error) {
-      Alert.alert('Could not create ticket', error.message);
+      toast.error('Could not send ticket', { message: error.message });
       return;
     }
     clearForm();
+    toast.success('Ticket sent', { message: 'Our team will reply here.' });
     void load({ silent: true });
   }
 

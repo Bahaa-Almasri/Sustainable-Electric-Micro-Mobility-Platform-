@@ -1,6 +1,6 @@
 import * as Location from 'expo-location';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Alert, Platform } from 'react-native';
+import { Platform } from 'react-native';
 
 import { useAuth } from '@/contexts/auth-context';
 import {
@@ -8,6 +8,7 @@ import {
   fetchMapOverview,
   type EndRideBilling,
 } from '@/lib/mobility-api';
+import { toast } from '@/lib/toast';
 import type { RidePricingCatalog, RideRowWithVehicle, StationRow } from '@/types/entities';
 
 export const DEFAULT_MAP_REGION = {
@@ -224,7 +225,7 @@ export function useMapScreen() {
     const { error, data } = await endRide(activeRide.ride_id, activeRide.vehicle_id, endLat, endLng);
     setEnding(false);
     if (error) {
-      Alert.alert('Could not end ride', error);
+      toast.error('Could not end ride', { message: error });
       return;
     }
     if (data) {

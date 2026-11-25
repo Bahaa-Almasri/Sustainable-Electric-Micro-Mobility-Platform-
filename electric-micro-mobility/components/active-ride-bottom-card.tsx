@@ -1,13 +1,15 @@
 import { Ionicons } from '@expo/vector-icons';
 import { memo, useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
+import { EndRideConfirmSheet } from '@/components/end-ride-confirm-sheet';
 import { RouteStop } from '@/components/wayfinder/route';
 import { FontFamily, Type } from '@/constants/theme';
 import { useRideDistance } from '@/hooks/use-ride-distance';
 import { useTabBarSpace, useWayfinder } from '@/hooks/use-wayfinder';
 import { distanceMetersBetween } from '@/lib/geo-distance';
 import { fetchVehicleDetail } from '@/lib/mobility-api';
+import { elapsedSeconds, estimateRideCost, formatClock, formatRideDuration } from '@/lib/ride-time';
 import { estimateRangeKm, getVehicleImageSource, getVehicleVisual, vehicleKindFromDbType } from '@/lib/vehicle-image-map';
 import type { RidePricingCatalog, RideRowWithVehicle, StationRow, VehicleWithState } from '@/types/entities';
 
@@ -24,33 +26,6 @@ export const ActiveRideStatusChip = memo(function ActiveRideStatusChip() {
     </View>
   );
 });
-
-/** Parse API instants so naive ISO strings are treated as UTC (matches DB storage). */
-function parseRideStartInstant(startIso: string): number {
-  const s = startIso.trim();
-  const hasExplicitTz = /[zZ]$|[+-]\d{2}:\d{2}$/.test(s);
-  return hasExplicitTz ? new Date(s).getTime() : new Date(`${s.replace(/\s*$/, '')}Z`).getTime();
-}
-
-function elapsedSeconds(startIso: string | null | undefined): number {
-  if (!startIso) return 0;
-  const start = parseRideStartInstant(startIso);
-  if (Number.isNaN(start)) return 0;
-  return Math.max(0, Math.floor((Date.now() - start) / 1000));
-}
-
-function formatRideDuration(sec: number): string {
-  const m = Math.floor(sec / 60);
-  const s = sec % 60;
-  return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
-}
-
-function formatClock(startIso: string | null | undefined): string {
-  if (!startIso) return '—';
-  const start = parseRideStartInstant(startIso);
-  if (Number.isNaN(start)) return '—';
-  return new Date(start).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
-}
 
 function startStationName(ride: RideRowWithVehicle, stations: StationRow[]): string {
   if (ride.start_lat == null || ride.start_lng == null) return 'Ride start';
@@ -113,9 +88,10 @@ export const ActiveRideDetails = memo(function ActiveRideDetails({
   const rangeKm = estimateRangeKm(vehicleType, battery ?? null);
 
   const seconds = elapsedSeconds(activeRide.start_time);
-  // Same rule as the backend: billed per started minute, at least one. The final price comes from end-ride.
   const rate = activeRide.pricing ?? pricingCatalog?.[vehicleKindFromDbType(vehicleType)] ?? null;
-  const costSoFar = rate ? rate.initial_fee + Math.max(1, Math.ceil(seconds / 60)) * rate.price_per_minute : null;
+  const costSoFar = estimateRideCost(rate, seconds);
+  const vehicleName = activeRide.vehicles?.model?.trim() || visual.title;
+  const [confirmVisible, setConfirmVisible] = useState(false);
 
   return (
     <ScrollView
@@ -133,7 +109,7 @@ export const ActiveRideDetails = memo(function ActiveRideDetails({
             )}
           </View>
           <Text style={[Type.body, { color: c.text }]} numberOfLines={1}>
-            {activeRide.vehicles?.model?.trim() || visual.title}
+            {vehicleName}
           </Text>
         </View>
       </View>
@@ -188,19 +164,24 @@ export const ActiveRideDetails = memo(function ActiveRideDetails({
       <Pressable
         accessibilityRole="button"
         accessibilityLabel="Stop ride"
-        accessibilityState={{ disabled: ending, busy: ending }}
-        onPress={onEndRide}
+        accessibilityHint="Asks you to confirm before the ride ends"
+        accessibilityState={{ disabled: ending }}
+        onPress={() => setConfirmVisible(true)}
         disabled={ending}
         style={({ pressed }) => [styles.stop, { backgroundColor: c.inverse, opacity: pressed ? 0.88 : 1 }]}>
-        {ending ? (
-          <ActivityIndicator color={c.inverseText} />
-        ) : (
-          <>
-            <View style={[styles.stopSquare, { backgroundColor: c.accent }]} />
-            <Text style={[styles.stopText2, { color: c.inverseText }]}>Stop ride</Text>
-          </>
-        )}
+        <View style={[styles.stopSquare, { backgroundColor: c.accent }]} />
+        <Text style={[styles.stopText2, { color: c.inverseText }]}>Stop ride</Text>
       </Pressable>
+
+      <EndRideConfirmSheet
+        visible={confirmVisible}
+        vehicleName={vehicleName}
+        startTime={activeRide.start_time}
+        rate={rate}
+        ending={ending}
+        onConfirm={onEndRide}
+        onCancel={() => setConfirmVisible(false)}
+      />
     </ScrollView>
   );
 });

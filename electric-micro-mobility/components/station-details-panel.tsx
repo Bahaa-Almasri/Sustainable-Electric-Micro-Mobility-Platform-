@@ -4,6 +4,7 @@ import { Modal, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensio
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { StationVehicleCard } from '@/components/station-vehicle-card';
+import { ToastHost } from '@/components/toast-host';
 import { StationVehiclesSkeleton } from '@/components/screen-skeletons';
 import { VehicleFiltersPanel } from '@/components/vehicle-filters-panel';
 import { IconButton } from '@/components/wayfinder/ui';
@@ -181,6 +182,7 @@ export const StationDetailsPanel = memo(function StationDetailsPanel({
             </ScrollView>
           )}
         </View>
+        <ToastHost />
       </View>
     </Modal>
   );

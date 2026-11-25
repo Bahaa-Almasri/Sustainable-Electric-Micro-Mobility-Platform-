@@ -10,6 +10,7 @@ import { FontFamily, LoaderAccent, Type } from '@/constants/theme';
 import { useAuth } from '@/contexts/auth-context';
 import { useTabBarSpace, useWayfinder } from '@/hooks/use-wayfinder';
 import { fetchRidePackages, fetchWalletOverview, purchaseRidePackage } from '@/lib/mobility-api';
+import { toast } from '@/lib/toast';
 import type { PackageRow, PaymentMethodRow, PaymentRow, PurchaseRow } from '@/types/entities';
 
 function formatMoney(amount: number | null | undefined, currency: string | null | undefined): string {
@@ -118,10 +119,10 @@ export default function WalletScreen() {
           const { error } = await purchaseRidePackage(user.id, pkg);
           setBuyingId(null);
           if (error) {
-            Alert.alert('Purchase failed', error);
+            toast.error('Purchase failed', { message: error });
             return;
           }
-          Alert.alert('Success', 'Package added to your account.');
+          toast.success('Package added', { message: `${pkg.title ?? 'Package'} is now in your wallet.` });
           void load({ silent: true });
         },
       },
@@ -129,7 +130,7 @@ export default function WalletScreen() {
   }
 
   function onPaymentMethods() {
-    Alert.alert('Payment methods', 'Add payment method is not available yet.');
+    toast.info('Coming soon', { message: 'Adding a payment method is not available yet.' });
   }
 
   if (loading && !refreshing) {
