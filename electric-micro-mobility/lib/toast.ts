@@ -9,6 +9,8 @@
  * without a React context. `<ToastHost />` renders it.
  */
 
+import { haptics } from '@/lib/haptics';
+
 export type ToastKind = 'success' | 'error' | 'info';
 
 export type ToastAction = { label: string; onPress: () => void };
@@ -51,6 +53,8 @@ function show(kind: ToastKind, title: string, opts: ShowOptions = {}) {
   const duration = opts.duration ?? (opts.action ? 5000 : kind === 'error' ? 4500 : 3200);
   current = { id: nextId++, kind, title, message: opts.message, action: opts.action, duration };
   hideTimer = setTimeout(hide, duration);
+  if (kind === 'success') haptics.success();
+  else if (kind === 'error') haptics.error();
   emit();
 }
 

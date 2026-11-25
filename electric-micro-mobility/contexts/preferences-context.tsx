@@ -9,6 +9,7 @@ import React, {
 } from 'react';
 import { useColorScheme as useRNColorScheme } from 'react-native';
 
+import { setHapticsEnabled } from '@/lib/haptics';
 import { DEFAULT_APP_PREFERENCES } from '@/lib/preferences/defaults';
 import { loadAppPreferences, saveAppPreferences } from '@/lib/preferences/storage';
 import type { AppPreferences } from '@/types/app-preferences';
@@ -42,6 +43,10 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
       active = false;
     };
   }, []);
+
+  useEffect(() => {
+    setHapticsEnabled(preferences.vibrationEnabled);
+  }, [preferences.vibrationEnabled]);
 
   const resolvedColorScheme = useMemo((): 'light' | 'dark' => {
     const m = preferences.themeMode;

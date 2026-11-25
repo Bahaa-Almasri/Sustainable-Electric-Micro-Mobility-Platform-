@@ -93,7 +93,9 @@ export const StationVehicleCard = memo(function StationVehicleCard({
               <View style={[styles.batteryFill, { width: `${batteryPct ?? 0}%`, backgroundColor: batteryColor }]} />
             </View>
             <Text style={[Type.secondary, styles.batteryText, { color: c.muted }]} numberOfLines={1}>
-              {batteryPct == null ? '—' : `${batteryPct}%`} · {rangeKm == null ? '—' : `${rangeKm} km`}
+              <Text style={[styles.batteryPct, { color: batteryColor }]}>{batteryPct == null ? '—' : `${batteryPct}%`}</Text>
+              {' · '}
+              {rangeKm == null ? '—' : `${rangeKm} km`}
             </Text>
           </View>
           {rate ? (
@@ -149,6 +151,8 @@ const styles = StyleSheet.create({
   name: { fontSize: 16 },
   batteryRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   batteryText: { flexShrink: 1 },
+  /** Same color as the bar (red under 25%, amber under 55%), so low battery reads at a glance. */
+  batteryPct: { fontFamily: FontFamily.bold },
   batteryTrack: { width: 44, height: 4, borderRadius: 2, overflow: 'hidden' },
   batteryFill: { height: 4, borderRadius: 2 },
   priceValue: { fontFamily: FontFamily.display, fontSize: 17 },

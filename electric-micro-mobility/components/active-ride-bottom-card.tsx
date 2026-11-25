@@ -8,6 +8,7 @@ import { FontFamily, Type } from '@/constants/theme';
 import { useRideDistance } from '@/hooks/use-ride-distance';
 import { useTabBarSpace, useWayfinder } from '@/hooks/use-wayfinder';
 import { distanceMetersBetween } from '@/lib/geo-distance';
+import { haptics } from '@/lib/haptics';
 import { fetchVehicleDetail } from '@/lib/mobility-api';
 import { elapsedSeconds, estimateRideCost, formatClock, formatRideDuration } from '@/lib/ride-time';
 import { estimateRangeKm, getVehicleImageSource, getVehicleVisual, vehicleKindFromDbType } from '@/lib/vehicle-image-map';
@@ -166,7 +167,10 @@ export const ActiveRideDetails = memo(function ActiveRideDetails({
         accessibilityLabel="Stop ride"
         accessibilityHint="Asks you to confirm before the ride ends"
         accessibilityState={{ disabled: ending }}
-        onPress={() => setConfirmVisible(true)}
+        onPress={() => {
+          haptics.medium();
+          setConfirmVisible(true);
+        }}
         disabled={ending}
         style={({ pressed }) => [styles.stop, { backgroundColor: c.inverse, opacity: pressed ? 0.88 : 1 }]}>
         <View style={[styles.stopSquare, { backgroundColor: c.accent }]} />

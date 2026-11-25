@@ -20,6 +20,7 @@ import {
   startRide,
   type VehicleWithState,
 } from '@/lib/mobility-api';
+import { haptics } from '@/lib/haptics';
 import { toast } from '@/lib/toast';
 import { estimateRangeKm, getVehicleImageSelection, getVehicleVisual, vehicleKindFromDbType } from '@/lib/vehicle-image-map';
 import type { ReservationRow, RidePricingCatalog } from '@/types/entities';
@@ -200,6 +201,7 @@ export default function VehicleDetailScreen() {
       setMyReservation(latestMine ?? null);
       setReservationSuccessMessage(successMessage);
       await load();
+      haptics.success();
       setReservationSuccessVisible(true);
     } finally {
       setReserveLoadingVehicleId((current) => (current === id ? null : current));

@@ -5,6 +5,7 @@ import { UnderlineTabs } from '@/components/wayfinder/ui';
 import { FontFamily, Type } from '@/constants/theme';
 import type { BatteryRangeFilter, VehicleTypeFilter } from '@/hooks/use-vehicle-filters';
 import { useWayfinder } from '@/hooks/use-wayfinder';
+import { haptics } from '@/lib/haptics';
 
 type VehicleFiltersPanelProps = {
   vehicleType: VehicleTypeFilter;
@@ -51,7 +52,10 @@ export const VehicleFiltersPanel = memo(function VehicleFiltersPanel({
               key={opt.value}
               accessibilityRole="button"
               accessibilityState={{ selected: active }}
-              onPress={() => onBatteryRangeChange(opt.value)}
+              onPress={() => {
+                if (!active) haptics.selection();
+                onBatteryRangeChange(opt.value);
+              }}
               style={[
                 styles.chip,
                 active ? { backgroundColor: c.inverse, borderColor: c.inverse } : { borderColor: c.line },
