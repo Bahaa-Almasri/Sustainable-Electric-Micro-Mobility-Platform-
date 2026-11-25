@@ -1,12 +1,11 @@
-import { useEffect, useState } from 'react';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { RideCostText, RideDurationText } from '@/components/ride-live-text';
 import { ToastHost } from '@/components/toast-host';
 import { Button } from '@/components/wayfinder/ui';
 import { FontFamily, Type } from '@/constants/theme';
 import { useWayfinder } from '@/hooks/use-wayfinder';
-import { elapsedSeconds, estimateRideCost, formatRideDuration } from '@/lib/ride-time';
 import type { RidePricingSnapshot } from '@/types/entities';
 
 type EndRideConfirmSheetProps = {
@@ -35,17 +34,6 @@ export function EndRideConfirmSheet({
 }: EndRideConfirmSheetProps) {
   const { c } = useWayfinder();
   const { bottom } = useSafeAreaInsets();
-  const [, setTick] = useState(0);
-
-  useEffect(() => {
-    if (!visible) return;
-    const id = setInterval(() => setTick((t) => t + 1), 1000);
-    return () => clearInterval(id);
-  }, [visible]);
-
-  const seconds = elapsedSeconds(startTime);
-
-  const cost = estimateRideCost(rate, seconds);
   const close = ending ? () => {} : onCancel;
 
   return (
@@ -71,11 +59,11 @@ export function EndRideConfirmSheet({
             </View>
             <View style={[styles.stat, styles.statDivided, { borderLeftColor: c.line }]}>
               <Text style={[Type.secondary, { color: c.muted }]}>Time</Text>
-              <Text style={[Type.stat, styles.tabular, { color: c.text }]}>{formatRideDuration(seconds)}</Text>
+              <RideDurationText startTime={startTime} style={[Type.stat, styles.tabular, { color: c.text }]} />
             </View>
             <View style={[styles.stat, styles.statDivided, { borderLeftColor: c.line }]}>
               <Text style={[Type.secondary, { color: c.muted }]}>So far</Text>
-              <Text style={[Type.stat, { color: c.text }]}>{cost == null ? '—' : `$${cost.toFixed(2)}`}</Text>
+              <RideCostText startTime={startTime} rate={rate} style={[Type.stat, { color: c.text }]} />
             </View>
           </View>
           <Text style={[styles.fine, { color: c.muted }]}>The final price is confirmed on your receipt.</Text>
