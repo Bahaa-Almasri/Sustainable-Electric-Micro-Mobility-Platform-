@@ -1,9 +1,10 @@
 import type { Tabs } from 'expo-router';
 import React, { memo, type ComponentProps } from 'react';
-import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { FontFamily } from '@/constants/theme';
 import { TAB_BAR_HEIGHT, useWayfinder } from '@/hooks/use-wayfinder';
+import { haptics } from '@/lib/haptics';
 
 /** expo-router bundles its own React Navigation, so take the props type from its `Tabs`. */
 export type BottomTabBarProps = Parameters<NonNullable<ComponentProps<typeof Tabs>['tabBar']>>[0];
@@ -52,12 +53,7 @@ function PillTabBarInner({ state, descriptors, emitter, navigateToTab, insets }:
             testID={options.tabBarButtonTestID}
             onPress={onPress}
             onLongPress={onLongPress}
-            onPressIn={() => {
-              if (Platform.OS !== 'ios') return;
-              void import('expo-haptics').then((Haptics) =>
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
-              );
-            }}
+            onPressIn={haptics.light}
             style={isFocused ? [styles.active, { backgroundColor: c.accent }] : styles.inactive}>
             {iconEl}
             {isFocused ? (

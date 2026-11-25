@@ -20,6 +20,7 @@ import { useAuth } from '@/contexts/auth-context';
 import { useMapScreen } from '@/hooks/use-map-screen';
 import { useWayfinder } from '@/hooks/use-wayfinder';
 import { createReservation, fetchVehiclesForStation, startRide, type VehicleWithState } from '@/lib/mobility-api';
+import { haptics } from '@/lib/haptics';
 import { toast } from '@/lib/toast';
 import type { StationRow } from '@/types/entities';
 
@@ -134,6 +135,7 @@ export default function MapScreen() {
 
   const onStationPress = useCallback(
     (stationId: string) => {
+      haptics.selection();
       if (rideActive) {
         const s = parkingStations.find((x) => x.station_id === stationId);
         if (s) setParkingInfoStation(s);
@@ -172,6 +174,7 @@ export default function MapScreen() {
       // Close the station sheet now so only one native modal is ever up; iOS can leave an
       // invisible, touch-blocking layer when stacked modals are dismissed together.
       setSelectedStation(null);
+      haptics.success();
       setReserveSuccessVisible(true);
     } finally {
       setReserveBusyVehicleId((current) => (current === vehicleId ? null : current));

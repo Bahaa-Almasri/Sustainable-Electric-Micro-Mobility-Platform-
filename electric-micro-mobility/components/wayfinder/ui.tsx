@@ -17,6 +17,7 @@ import Svg, { Line } from 'react-native-svg';
 
 import { FontFamily, Type } from '@/constants/theme';
 import { useWayfinder } from '@/hooks/use-wayfinder';
+import { haptics } from '@/lib/haptics';
 
 type ButtonVariant = 'primary' | 'secondary' | 'inverse' | 'text';
 
@@ -243,7 +244,10 @@ export function UnderlineTabs<T extends string>({ options, value, onChange, styl
             key={opt.value}
             accessibilityRole="tab"
             accessibilityState={{ selected: active }}
-            onPress={() => onChange(opt.value)}
+            onPress={() => {
+              if (opt.value !== value) haptics.selection();
+              onChange(opt.value);
+            }}
             style={[styles.tab, active && { borderBottomColor: c.accent }]}>
             <Text style={[styles.tabText, { color: active ? c.text : c.muted }, active && styles.tabTextActive]}>
               {opt.label}

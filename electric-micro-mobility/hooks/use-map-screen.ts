@@ -8,6 +8,7 @@ import {
   fetchMapOverview,
   type EndRideBilling,
 } from '@/lib/mobility-api';
+import { haptics } from '@/lib/haptics';
 import { toast } from '@/lib/toast';
 import type { RidePricingCatalog, RideRowWithVehicle, StationRow } from '@/types/entities';
 
@@ -228,6 +229,7 @@ export function useMapScreen() {
       toast.error('Could not end ride', { message: error });
       return;
     }
+    haptics.success();
     if (data) {
       setRideEndReceipt(data);
     }
