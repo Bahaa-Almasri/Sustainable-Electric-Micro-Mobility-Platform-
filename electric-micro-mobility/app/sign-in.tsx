@@ -3,7 +3,6 @@ import { router, type Href } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Image,
   KeyboardAvoidingView,
   Platform,
@@ -21,6 +20,7 @@ import { Button, Field } from '@/components/wayfinder/ui';
 import { FontFamily, LoaderAccent } from '@/constants/theme';
 import { useAuth } from '@/contexts/auth-context';
 import { useWayfinder } from '@/hooks/use-wayfinder';
+import { toast } from '@/lib/toast';
 
 const SCOOTER = require('@/assets/vehicles/electric-scooter-elite.png');
 
@@ -46,7 +46,6 @@ export default function SignInScreen() {
     if (!email.trim() || !password) {
       const msg = 'Enter email and password.';
       setFormError(msg);
-      Alert.alert('Missing fields', msg);
       return;
     }
     setBusy(true);
@@ -54,7 +53,6 @@ export default function SignInScreen() {
       const { error } = await signIn(email.trim(), password);
       if (error) {
         setFormError(error.message);
-        Alert.alert('Sign in failed', error.message);
         return;
       }
       router.replace('/(tabs)/wallet' as Href);
@@ -64,7 +62,7 @@ export default function SignInScreen() {
   }
 
   function onSocialPlaceholder(provider: string) {
-    Alert.alert('Coming soon', `${provider} sign-in is not connected yet.`);
+    toast.info('Coming soon', { message: `${provider} sign-in is not connected yet.` });
   }
 
   if (loading) {

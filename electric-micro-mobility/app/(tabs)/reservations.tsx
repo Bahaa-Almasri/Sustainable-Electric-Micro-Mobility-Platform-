@@ -1,7 +1,6 @@
 import { router, useFocusEffect, type Href } from 'expo-router';
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Alert,
   FlatList,
   Image,
   KeyboardAvoidingView,
@@ -18,6 +17,7 @@ import { FontFamily, LoaderAccent, Type } from '@/constants/theme';
 import { useAuth } from '@/contexts/auth-context';
 import { useTabBarSpace, useWayfinder } from '@/hooks/use-wayfinder';
 import { cancelReservation, createReservation, fetchReservationsForUser } from '@/lib/mobility-api';
+import { toast } from '@/lib/toast';
 import { getVehicleImageSource, getVehicleVisual } from '@/lib/vehicle-image-map';
 import type { ReservationRow } from '@/types/entities';
 
@@ -256,7 +256,7 @@ export default function ReservationsScreen() {
 
   const onCancelReservation = useCallback((reservation: ReservationRow) => {
     if ((reservation.status ?? '').toLowerCase() !== 'active') {
-      Alert.alert('Cannot cancel', 'Only active reservations can be cancelled.');
+      toast.info('Cannot cancel', { message: 'Only active reservations can be cancelled.' });
       return;
     }
     setSelectedReservation(reservation);
@@ -266,7 +266,7 @@ export default function ReservationsScreen() {
     if (!user) return;
     const reservationId = selectedReservation?.reservation_id?.trim();
     if (!reservationId) {
-      Alert.alert('Cancellation failed', 'Missing reservation_id for selected row.');
+      toast.error('Cancellation failed', { message: 'This reservation has no ID. Pull down to refresh and try again.' });
       return;
     }
     setSelectedReservation(null);
@@ -274,19 +274,19 @@ export default function ReservationsScreen() {
     try {
       const { data: deleteResult, error } = await cancelReservation(user.id, reservationId);
       if (error) {
-        Alert.alert('Cancellation failed', error.message);
+        toast.error('Cancellation failed', { message: error.message });
         return;
       }
       if (!deleteResult?.ok) {
-        Alert.alert('Cancellation failed', 'Server did not confirm deletion.');
+        toast.error('Cancellation failed', { message: 'The server did not confirm it. Try again.' });
         return;
       }
       const refreshed = await load({ silent: true });
       if (refreshed.some((x) => x.reservation_id === reservationId && isActiveReservation(x))) {
-        Alert.alert(
-          'Removal not confirmed',
-          'Reservation still appears after refresh. Please retry and check backend logs.'
-        );
+        toast.error('Not cancelled yet', {
+          message: 'The reservation still shows after refreshing.',
+          action: { label: 'Refresh', onPress: () => void load({ silent: true }) },
+        });
         return;
       }
       setDeleteSuccessMessage(deleteResult.message?.trim() || 'Your vehicle hold has been released.');
@@ -298,18 +298,18 @@ export default function ReservationsScreen() {
   async function submitReservation() {
     const id = vehicleIdInput.trim();
     if (!id || !user) {
-      Alert.alert('Vehicle ID required', 'Paste the vehicle UUID from the map or fleet.');
+      toast.error('Vehicle ID required', { message: 'Paste the vehicle ID from the map or the fleet list.' });
       return;
     }
     setReserving(true);
     const { error } = await createReservation(user.id, id);
     setReserving(false);
     if (error) {
-      Alert.alert('Could not reserve', error.message);
+      toast.error('Could not reserve', { message: error.message });
       return;
     }
     setVehicleIdInput('');
-    Alert.alert('Reserved', 'Your hold is active until it expires.');
+    toast.success('Reserved', { message: 'Your hold is active until it expires.' });
     void load({ silent: true });
   }
 

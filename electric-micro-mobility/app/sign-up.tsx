@@ -3,7 +3,6 @@ import { router, type Href } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -20,6 +19,7 @@ import { BackButton, Button, Field } from '@/components/wayfinder/ui';
 import { FontFamily, LoaderAccent } from '@/constants/theme';
 import { useAuth } from '@/contexts/auth-context';
 import { useWayfinder } from '@/hooks/use-wayfinder';
+import { toast } from '@/lib/toast';
 
 type FieldKey = 'name' | 'email' | 'phone' | 'password';
 
@@ -49,32 +49,27 @@ export default function SignUpScreen() {
     if (!n) {
       const msg = 'Enter your name.';
       setFormError(msg);
-      Alert.alert('Missing name', msg);
       return;
     }
     if (!e) {
       const msg = 'Enter your email.';
       setFormError(msg);
-      Alert.alert('Missing email', msg);
       return;
     }
     const ph = phoneNumber.replace(/\s/g, '').trim();
     if (!ph || ph.length < 7) {
       const msg = 'Enter a valid phone number (at least 7 digits).';
       setFormError(msg);
-      Alert.alert('Missing phone', msg);
       return;
     }
     if (!password) {
       const msg = 'Enter a password.';
       setFormError(msg);
-      Alert.alert('Missing password', msg);
       return;
     }
     if (password.length < 8) {
       const msg = 'Use at least 8 characters for your password.';
       setFormError(msg);
-      Alert.alert('Weak password', msg);
       return;
     }
     setBusy(true);
@@ -87,7 +82,6 @@ export default function SignUpScreen() {
       });
       if (error) {
         setFormError(error.message);
-        Alert.alert('Sign up failed', error.message);
         return;
       }
       router.replace('/(tabs)/wallet' as Href);
@@ -97,7 +91,7 @@ export default function SignUpScreen() {
   }
 
   function onSocialPlaceholder(provider: string) {
-    Alert.alert('Coming soon', `${provider} sign-up is not connected yet.`);
+    toast.info('Coming soon', { message: `${provider} sign-up is not connected yet.` });
   }
 
   if (loading) {

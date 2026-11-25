@@ -1,9 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
 import { CameraView, type BarcodeScanningResult, useCameraPermissions } from 'expo-camera';
 import { memo, useCallback, useEffect, useMemo, useState } from 'react';
-import { Modal, Platform, Pressable, StyleSheet, View } from 'react-native';
+import { Linking, Modal, Platform, Pressable, StyleSheet, TextInput, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
+import { ToastHost } from '@/components/toast-host';
 import { FontFamily } from '@/constants/theme';
 import { useWayfinder } from '@/hooks/use-wayfinder';
 
@@ -44,6 +45,10 @@ export const ScanToRideModal = memo(function ScanToRideModal({
   /** Wrong QR, etc. — camera can stay open. */
   const [scanError, setScanError] = useState<string | null>(null);
   const [permissionDenied, setPermissionDenied] = useState(false);
+  /** "Enter the code instead": for a scratched, dirty or glaring QR sticker, or no camera. */
+  const [manualOpen, setManualOpen] = useState(false);
+  const [manualCode, setManualCode] = useState('');
+  const [manualError, setManualError] = useState<string | null>(null);
   const normalizedExpected = useMemo(
     () => Array.from(new Set(expectedPayloads.map(normalizePayload))).filter(Boolean),
     [expectedPayloads]
@@ -80,6 +85,9 @@ export const ScanToRideModal = memo(function ScanToRideModal({
     setFatalError(null);
     setScanError(null);
     setPermissionDenied(false);
+    setManualOpen(false);
+    setManualCode('');
+    setManualError(null);
     void checkAvailability();
   }, [checkAvailability, visible]);
 
@@ -123,6 +131,24 @@ export const ScanToRideModal = memo(function ScanToRideModal({
     [busy, normalizedExpected, onScanConfirmed, scanLocked]
   );
 
+  const onManualSubmit = useCallback(async () => {
+    if (busy || scanLocked) return;
+    const code = normalizePayload(manualCode);
+    if (!code) {
+      setManualError('Type the code printed under the QR sticker.');
+      return;
+    }
+    if (!SKIP_QR_MATCH_IN_DEV && normalizedExpected.length > 0 && !normalizedExpected.includes(code)) {
+      setManualError('That code does not match the selected vehicle. Check the sticker and try again.');
+      return;
+    }
+    setManualError(null);
+    await runConfirmed();
+  }, [busy, manualCode, normalizedExpected, runConfirmed, scanLocked]);
+
+  /** The OS only asks once; after "Don't allow" the user has to enable the camera in Settings. */
+  const canOpenSettings = Platform.OS !== 'web' && permissionDenied;
+
   const onPrimaryPress = useCallback(async () => {
     if (permissionDenied || !permission?.granted) {
       setFatalError(null);
@@ -165,10 +191,10 @@ export const ScanToRideModal = memo(function ScanToRideModal({
             </View>
           ) : null}
 
-          <View style={[styles.cameraWrap, { borderColor: c.line }]}>
+          <View style={[styles.cameraWrap, manualOpen && styles.compact, { borderColor: c.line }]}>
             {cameraReady ? (
               <CameraView
-                style={styles.camera}
+                style={[styles.camera, manualOpen && styles.compactCamera]}
                 facing="back"
                 barcodeScannerSettings={{ barcodeTypes: ['qr'] }}
                 onBarcodeScanned={onBarcodeScanned}
@@ -177,15 +203,74 @@ export const ScanToRideModal = memo(function ScanToRideModal({
                 }}
               />
             ) : (
-              <View style={styles.placeholder}>
+              <View style={[styles.placeholder, manualOpen && styles.compact]}>
                 <Ionicons name="qr-code-outline" size={34} color={c.text} />
                 <ThemedText style={styles.placeholderText}>
                   {fatalError ??
                     (permission?.granted ? 'Preparing camera...' : 'Requesting camera permission...')}
                 </ThemedText>
+                {canOpenSettings ? (
+                  <>
+                    <ThemedText style={[styles.placeholderHint, { color: muted }]}>
+                      Turn on Camera for this app in your phone settings, then come back.
+                    </ThemedText>
+                    <Pressable
+                      accessibilityRole="button"
+                      onPress={() => void Linking.openSettings()}
+                      style={({ pressed }) => [styles.settingsBtn, { backgroundColor: c.inverse, opacity: pressed ? 0.86 : 1 }]}>
+                      <Ionicons name="settings-outline" size={16} color={c.inverseText} />
+                      <ThemedText style={[styles.settingsText, { color: c.inverseText }]}>Open Settings</ThemedText>
+                    </Pressable>
+                  </>
+                ) : null}
               </View>
             )}
           </View>
+
+          {manualOpen ? (
+            <View style={[styles.manualBox, { borderColor: c.line }]}>
+              <ThemedText style={[styles.manualLabel, { color: muted }]}>VEHICLE CODE</ThemedText>
+              <View style={styles.manualRow}>
+                <TextInput
+                  value={manualCode}
+                  onChangeText={(t) => {
+                    setManualCode(t);
+                    setManualError(null);
+                  }}
+                  placeholder="Code under the QR sticker"
+                  placeholderTextColor={muted}
+                  autoCapitalize="characters"
+                  autoCorrect={false}
+                  autoFocus
+                  returnKeyType="go"
+                  onSubmitEditing={() => void onManualSubmit()}
+                  accessibilityLabel="Vehicle code"
+                  style={[styles.manualInput, { color: c.text, borderBottomColor: c.text }]}
+                />
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Unlock with code"
+                  onPress={() => void onManualSubmit()}
+                  disabled={busy}
+                  style={({ pressed }) => [styles.manualGo, { backgroundColor: c.accent, opacity: pressed || busy ? 0.85 : 1 }]}>
+                  <ThemedText style={[styles.primaryText, { color: c.onAccent }]}>{busy ? '...' : 'Unlock'}</ThemedText>
+                </Pressable>
+              </View>
+              {manualError ? (
+                <ThemedText style={[styles.manualError, { color: c.accentText }]}>{manualError}</ThemedText>
+              ) : null}
+            </View>
+          ) : (
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => setManualOpen(true)}
+              hitSlop={6}
+              style={styles.manualLink}>
+              <ThemedText style={[styles.manualLinkText, { color: c.accentText }]}>
+                Can&apos;t scan? Enter the code instead
+              </ThemedText>
+            </Pressable>
+          )}
 
           {SKIP_QR_MATCH_IN_DEV && cameraReady ? (
             <Pressable
@@ -238,6 +323,7 @@ export const ScanToRideModal = memo(function ScanToRideModal({
             </ThemedText>
           ) : null}
         </View>
+        <ToastHost />
       </View>
     </Modal>
   );
@@ -292,6 +378,13 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     minHeight: 300,
   },
+  /** Smaller camera while the code field is open, so the card fits above the keyboard. */
+  compact: {
+    minHeight: 170,
+  },
+  compactCamera: {
+    height: 190,
+  },
   camera: {
     width: '100%',
     height: 320,
@@ -306,6 +399,67 @@ const styles = StyleSheet.create({
   placeholderText: {
     textAlign: 'center',
     opacity: 0.8,
+    fontFamily: FontFamily.semibold,
+  },
+  placeholderHint: {
+    textAlign: 'center',
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  settingsBtn: {
+    marginTop: 4,
+    minHeight: 44,
+    paddingHorizontal: 18,
+    borderRadius: 22,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  settingsText: {
+    fontSize: 14,
+    fontFamily: FontFamily.bold,
+  },
+  manualLink: {
+    alignSelf: 'center',
+    paddingVertical: 4,
+  },
+  manualLinkText: {
+    fontSize: 14,
+    fontFamily: FontFamily.bold,
+  },
+  manualBox: {
+    borderWidth: 1,
+    borderRadius: 14,
+    padding: 12,
+    gap: 6,
+  },
+  manualLabel: {
+    fontSize: 12,
+    letterSpacing: 1.3,
+    fontFamily: FontFamily.semibold,
+  },
+  manualRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  manualInput: {
+    flex: 1,
+    minHeight: 44,
+    fontSize: 17,
+    fontFamily: FontFamily.medium,
+    borderBottomWidth: 1.5,
+    paddingHorizontal: 0,
+  },
+  manualGo: {
+    minHeight: 44,
+    paddingHorizontal: 18,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  manualError: {
+    fontSize: 13,
     fontFamily: FontFamily.semibold,
   },
   devSkipBtn: {

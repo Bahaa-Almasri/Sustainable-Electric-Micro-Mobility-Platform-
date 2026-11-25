@@ -1,10 +1,11 @@
 import { router, useFocusEffect, type Href } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ActiveRideDetails, ActiveRideStatusChip } from '@/components/active-ride-bottom-card';
 import { OsmMapView } from '@/components/osm-map-view';
+import { ParkingStationCard } from '@/components/parking-station-card';
 import { MapStationsFilterSheet } from '@/components/map-stations-filter-sheet';
 import type { OsmMapViewRef } from '@/components/osm-map-types';
 import { RideEndReceiptModal } from '@/components/ride-end-receipt-modal';
@@ -19,9 +20,12 @@ import { useAuth } from '@/contexts/auth-context';
 import { useMapScreen } from '@/hooks/use-map-screen';
 import { useWayfinder } from '@/hooks/use-wayfinder';
 import { createReservation, fetchVehiclesForStation, startRide, type VehicleWithState } from '@/lib/mobility-api';
+import { toast } from '@/lib/toast';
 import type { StationRow } from '@/types/entities';
 
 const RIDE_MAP_HEIGHT = 168;
+/** How far the parking card rises over the bottom of the ride map. */
+const PARKING_CARD_OVERLAP = 70;
 
 /**
  * OpenStreetMap-derived tiles (Leaflet in a WebView, or an iframe on web). No Google / Apple map SDK.
@@ -59,6 +63,8 @@ export default function MapScreen() {
   const [showEmptyStations, setShowEmptyStations] = useState(false);
   const [reserveSuccessVisible, setReserveSuccessVisible] = useState(false);
   const [reserveSuccessMessage, setReserveSuccessMessage] = useState('Your vehicle has been reserved successfully.');
+  /** Station tapped during a ride: its free parking shows in a card over the map. */
+  const [parkingInfoStation, setParkingInfoStation] = useState<StationRow | null>(null);
 
   const rideActive = !!activeRide;
 
@@ -79,7 +85,10 @@ export default function MapScreen() {
   }, [refresh, rideActive, showEmptyStations, userLocation]);
 
   useEffect(() => {
-    if (!rideActive) return;
+    if (!rideActive) {
+      setParkingInfoStation(null);
+      return;
+    }
     setSelectedStation(null);
     setMapFiltersVisible(false);
     setScanVisible(false);
@@ -127,14 +136,7 @@ export default function MapScreen() {
     (stationId: string) => {
       if (rideActive) {
         const s = parkingStations.find((x) => x.station_id === stationId);
-        if (!s) return;
-        const spots = s.available_parking_spots ?? 0;
-        Alert.alert(
-          s.name ?? 'Station',
-          spots > 0
-            ? `${spots} free parking ${spots === 1 ? 'spot' : 'spots'} — you can end your ride here.`
-            : 'No parking spots available here.'
-        );
+        if (s) setParkingInfoStation(s);
         return;
       }
       const station = browseStationList.find((x) => x.station_id === stationId);
@@ -157,7 +159,10 @@ export default function MapScreen() {
     try {
       const { data, error } = await createReservation(user.id, vehicleId);
       if (error) {
-        Alert.alert('Reservation failed', error.message);
+        toast.error('Reservation failed', {
+          message: error.message,
+          action: { label: 'Retry', onPress: () => void reserveRef.current?.(vehicleId) },
+        });
         return;
       }
       console.log('[Map] reservation API success response', { vehicleId, data });
@@ -172,6 +177,11 @@ export default function MapScreen() {
       setReserveBusyVehicleId((current) => (current === vehicleId ? null : current));
     }
   }, [startRideBusyVehicleId, user]);
+  /** Lets the toast's Retry call the latest `onReserveList` without a dependency cycle. */
+  const reserveRef = useRef(onReserveList);
+  useEffect(() => {
+    reserveRef.current = onReserveList;
+  }, [onReserveList]);
 
   const selectedScanVehicle = useMemo(
     () => stationVehicles.find((v) => v.vehicle_id === scanVehicleId) ?? null,
@@ -199,10 +209,10 @@ export default function MapScreen() {
         startLng: userLocation?.longitude ?? region.longitude,
       });
       if (error) {
-        Alert.alert('Cannot start ride', error);
+        toast.error('Cannot start ride', { message: error });
         return;
       }
-      Alert.alert('Ride started', 'Have a safe trip.');
+      toast.success('Ride started', { message: 'Have a safe trip.' });
       closeScanToRideList();
       setSelectedStation(null);
       await refreshAndAnimate();
@@ -264,6 +274,13 @@ export default function MapScreen() {
             onEndRide={onEndRide}
             style={{ marginTop: rideMapTop + RIDE_MAP_HEIGHT }}
           />
+          {parkingInfoStation ? (
+            <ParkingStationCard
+              station={parkingInfoStation}
+              onClose={() => setParkingInfoStation(null)}
+              style={[styles.parkingCard, { top: rideMapTop + RIDE_MAP_HEIGHT - PARKING_CARD_OVERLAP }]}
+            />
+          ) : null}
         </>
       ) : (
         <>
@@ -351,6 +368,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     zIndex: 2,
     pointerEvents: 'none',
+  },
+  parkingCard: {
+    position: 'absolute',
+    left: 24,
+    right: 24,
+    zIndex: 6,
   },
   rideChrome: {
     position: 'absolute',

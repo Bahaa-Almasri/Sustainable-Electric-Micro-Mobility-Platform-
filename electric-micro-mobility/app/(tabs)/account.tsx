@@ -33,6 +33,7 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 import { usePreferences } from '@/hooks/use-preferences';
 import { useTabBarSpace } from '@/hooks/use-wayfinder';
 import { matchesAccountSearch } from '@/lib/account-search';
+import { toast } from '@/lib/toast';
 import { LANGUAGE_LABELS, THEME_LABELS } from '@/lib/preferences/labels';
 import { LANGUAGE_PICKER_OPTIONS, THEME_PICKER_OPTIONS } from '@/lib/preferences/picker-options';
 import type { AppLanguage, ThemeMode } from '@/types/app-preferences';
@@ -49,7 +50,7 @@ function rideDurationMinutes(r: RideRow): number | null {
 }
 
 function comingSoon(title: string, message = 'This will be available in a future update.') {
-  return () => Alert.alert(title, message);
+  return () => toast.info(title, { message });
 }
 
 export default function AccountScreen() {
@@ -218,10 +219,9 @@ export default function AccountScreen() {
       router.replace('/sign-in' as Href);
     } catch (e) {
       setSignOutBusy(false);
-      Alert.alert(
-        'Sign out failed',
-        e instanceof Error ? e.message : 'Could not end your session. Please try again.'
-      );
+      toast.error('Sign out failed', {
+        message: e instanceof Error ? e.message : 'Could not end your session. Please try again.',
+      });
     }
   }, [signOut]);
 
